@@ -69,8 +69,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingTask.promise.then(pdf => {
             return pdf.getPage(1);
         }).then(page => {
-            const scale = 1.5;
+            // --- THIS IS THE UPDATED LOGIC ---
+            // 1. Get the container and its width
+            const container = document.querySelector('.modal-body');
+            // Subtract padding to get the usable width
+            const containerWidth = container.clientWidth - (parseFloat(getComputedStyle(container).paddingLeft) * 2);
+
+            // 2. Calculate the scale required to fit the page width to the container width
+            const viewportAtScale1 = page.getViewport({ scale: 1 });
+            const scale = containerWidth / viewportAtScale1.width;
             const viewport = page.getViewport({ scale });
+            // --- END OF UPDATED LOGIC ---
+
             const context = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
@@ -119,9 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const filePath = fileItem.dataset.path;
         const fileName = fileItem.dataset.name;
-
-        // ** THIS IS THE ONLY CHANGE **
-        // We now use the local file path instead of the sample URL
+        
         openModal(fileName, filePath);
     }
     
@@ -155,4 +163,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- START APP ---
     initializeApp();
 });
-/* Build Timestamp: Wed, 24 Sep 2025 17:07:08 GMT */
+/* Build Timestamp: Wed, 24 Sep 2025 17:13:11 GMT */
