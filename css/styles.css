@@ -39,6 +39,26 @@ body {
     flex-shrink: 0;
 }
 
+.header-title {
+    font-size: 1.25rem;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#search-input {
+    padding: 0.6rem;
+    min-width: 250px;
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--primary-text);
+    font-size: 0.9rem;
+}
+
 .app-main {
     flex-grow: 1;
     display: flex;

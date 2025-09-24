@@ -52,6 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
         
+        // Handle case where there are no search results
+        if (data.length === 0) {
+            sidebarHTML = '<p style="padding: 1rem;">No matching tabs.</p>';
+            contentHTML = '<p style="padding: 1rem;">No results found.</p>';
+        }
+
         sidebar.innerHTML = sidebarHTML;
         contentArea.innerHTML = contentHTML;
     }
@@ -86,6 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('file-importer').click();
         });
         document.getElementById('file-importer').addEventListener('change', handleFileImport);
+        // Add listener for the search input
+        document.getElementById('search-input').addEventListener('input', handleSearch);
     }
 
     function handleTabClick(e) {
@@ -116,23 +124,47 @@ document.addEventListener('DOMContentLoaded', () => {
             openModal(filePath, fileName);
         }
     }
+    
+    // New function to handle search input
+    function handleSearch(e) {
+        const searchTerm = e.target.value.toLowerCase();
+
+        if (!searchTerm) {
+            renderBinder(binderData); // If search is cleared, show all data
+            return;
+        }
+
+        const filteredData = binderData.map(tab => {
+            const matchingFiles = tab.files.filter(file => 
+                file.name.toLowerCase().includes(searchTerm)
+            );
+            const tabTitleMatches = tab.title.toLowerCase().includes(searchTerm);
+
+            if (tabTitleMatches || matchingFiles.length > 0) {
+                return {
+                    ...tab,
+                    files: tabTitleMatches ? tab.files : matchingFiles
+                };
+            }
+            return null;
+        }).filter(tab => tab !== null);
+
+        renderBinder(filteredData);
+    }
 
     function handleFileImport(e) {
         const files = e.target.files;
         if (!files.length) return;
 
         for (const file of files) {
-            // --- NEW: DUPLICATE CHECK ---
-            // Check if a file with this name already exists in any tab
             const alreadyExists = binderData.some(tab => 
                 tab.files.some(existingFile => existingFile.name === file.name)
             );
 
             if (alreadyExists) {
                 alert(`Duplicate file detected. Skipping: ${file.name}`);
-                continue; // Skip to the next file
+                continue;
             }
-            // --- END OF DUPLICATE CHECK ---
 
             const parts = file.name.replace('.pdf', '').split('-');
             if (parts.length < 2) {
@@ -150,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const newFile = {
                 name: file.name,
-                version: 'v1.0', // Default version for imported files
+                version: 'v1.0',
                 date: dateStr,
                 path: `files/${file.name}`
             };
@@ -206,4 +238,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: Wed, 24 Sep 2025 17:31:43 GMT */
+/* Build Timestamp: Wed, 24 Sep 2025 17:37:05 GMT */
