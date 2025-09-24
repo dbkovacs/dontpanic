@@ -12,16 +12,28 @@
     </header>
 
     <main class="app-main">
-        <div class="welcome-message">
-            <h2>Welcome</h2>
-            <p>Project initialization complete. Ready for the next phase.</p>
-        </div>
+        <nav class="sidebar"></nav>
+        <section class="content-area"></section>
     </main>
     
     <footer class="app-footer">
         <p id="build-timestamp">Building...</p>
     </footer>
 
+    <div id="pdf-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="pdf-title">Loading Document...</h2>
+                <button id="modal-close-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <canvas id="pdf-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    
     <script src="js/app.js"></script>
 </body>
 </html>
