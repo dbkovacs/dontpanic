@@ -9,6 +9,7 @@
 <body>
     <header class="app-header">
         <h1>Digital Binder</h1>
+        <button id="import-files-btn" class="btn-primary">+ Import Files</button>
     </header>
 
     <main class="app-main">
@@ -19,6 +20,8 @@
     <footer class="app-footer">
         <p id="build-timestamp">Building...</p>
     </footer>
+
+    <input type="file" id="file-importer" class="hidden" multiple accept=".pdf">
 
     <div id="pdf-modal" class="modal-overlay hidden">
         <div class="modal-content">
@@ -33,7 +36,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-    
     <script src="js/app.js"></script>
 </body>
 </html>

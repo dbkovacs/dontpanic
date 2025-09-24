@@ -6,6 +6,7 @@
     --primary-text: #e0e0e0;
     --secondary-text: #a0a0a0;
     --accent-color: #0d6efd;
+    --danger-color: #dc3545;
     --border-color: #444;
 }
 
@@ -29,9 +30,11 @@ body {
 }
 
 .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     background-color: var(--secondary-bg);
-    padding: 1rem;
-    text-align: center;
+    padding: 0.75rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
@@ -91,11 +94,18 @@ body {
     display: block;
 }
 
-.content-panel h2 {
+.content-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1.5rem;
-    color: var(--accent-color);
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.content-panel-header h2 {
+    margin: 0;
+    color: var(--accent-color);
 }
 
 .file-list {
@@ -105,17 +115,20 @@ body {
 }
 
 .file-item {
+    position: relative;
     background-color: var(--secondary-bg);
     padding: 1rem;
     border-radius: 6px;
     border: 1px solid var(--border-color);
-    cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.file-item:hover {
-    background-color: var(--tertiary-bg);
-    border-color: var(--accent-color);
+.file-item-content {
+    cursor: pointer;
+}
+
+.file-item-content:hover {
+    filter: brightness(1.2);
 }
 
 .file-name {
@@ -128,6 +141,29 @@ body {
 .file-meta {
     font-size: 0.8rem;
     color: var(--secondary-text);
+}
+
+.delete-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    background-color: var(--tertiary-bg);
+    color: var(--secondary-text);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 22px;
+    text-align: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.delete-btn:hover {
+    background-color: var(--danger-color);
+    color: white;
 }
 
 /* Modal Styles */
@@ -154,10 +190,13 @@ body {
     border-radius: 8px;
     width: 90%;
     max-width: 800px;
-    height: 90vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+#pdf-modal .modal-content {
+    height: 90vh;
 }
 
 .modal-header {
@@ -185,14 +224,34 @@ body {
 }
 
 .modal-body {
-    flex-grow: 1;
     overflow: auto;
-    padding: 1rem;
-    text-align: center;
+    padding: 1.5rem;
 }
 
 #pdf-canvas {
     border: 1px solid var(--border-color);
+    display: block;
+    margin: 0 auto;
+}
+
+.btn-primary {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.1);
+}
+
+.hidden {
+    display: none !important;
 }
 
 .app-footer {
@@ -204,4 +263,3 @@ body {
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
 }
-/* Build Timestamp: Wed, 24 Sep 2025 17:05:52 GMT */
