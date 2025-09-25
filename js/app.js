@@ -2,9 +2,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- DATA ---
     let binderData = [
-        { id: 'tab-1', title: '1. Procedures', files: [], color: 1 },
-        { id: 'tab-2', title: '2. Checklists', files: [], color: 2 },
-        { id: 'tab-3', title: '3. Reference', files: [], color: 3 },
+        { id: 'tab-1', title: 'Procedures', files: [], color: 1, type: 'tab', displayNumber: 1 },
+        { id: 'tab-2', title: 'Checklists', files: [], color: 2, type: 'tab', displayNumber: 2 },
+        { id: 'tab-3', title: 'Reference', files: [], color: 3, type: 'tab', displayNumber: 3 },
     ];
     let fileContentCache = {};
     const tabColors = 7;
@@ -31,7 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
         setBuildTimestamp();
         renderBinder(binderData);
         initializeEventListeners();
-        binderData.forEach(tab => tab.files.forEach(file => cacheFileContent(file.path)));
+        binderData.forEach(item => {
+            if (item.type === 'tab') {
+                item.files.forEach(file => cacheFileContent(file.path));
+            }
+        });
         updateActiveHeaderColor();
     }
 
@@ -66,63 +70,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UI RENDERING ---
     function renderBinder(data) {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebarContent = document.querySelector('.sidebar-content');
         const contentArea = document.querySelector('.content-area');
-        if (!sidebar || !contentArea) return;
+        if (!sidebarContent || !contentArea) return;
         let sidebarHTML = '';
         let contentHTML = '';
-        data.forEach((tab, index) => {
-            const isActive = index === 0 ? 'active' : '';
-            if (!tab.color) tab.color = (index % tabColors) + 1;
+        let firstTabId = null;
 
-            let colorPaletteHTML = '<div class="color-palette">';
-            for (let i = 1; i <= tabColors; i++) {
-                colorPaletteHTML += `<div class="color-swatch" style="background-color: var(--tab-color-${i})" data-tab-id="${tab.id}" data-color="${i}"></div>`;
-            }
-            colorPaletteHTML += '</div>';
+        data.forEach((item, index) => {
+            if (item.type === 'tab') {
+                if (!firstTabId) firstTabId = item.id;
+                if (!item.color) item.color = (index % tabColors) + 1;
 
-            sidebarHTML += `
-                <div class="tab-header" draggable="true" data-tab-id="${tab.id}">
-                    <a href="#" class="tab" data-tab-target="#${tab.id}-content" data-tab-id="${tab.id}" data-color="${tab.color}">${tab.title}</a>
-                    <div class="color-picker">
-                        <span class="color-picker-icon">🎨</span>
-                        ${colorPaletteHTML}
-                    </div>
-                </div>`;
-            
-            let fileListHTML = '<p>No files in this section.</p>';
-            if (tab.files.length > 0) {
-                fileListHTML = tab.files.map(file => `
-                    <div class="file-item">
-                        <div class="file-item-content" data-path="${file.path}" data-name="${file.name}">
-                            <span class="file-name">${file.name}</span>
-                            <span class="file-meta">Version: ${file.version} | Updated: ${file.date}</span>
+                let colorPaletteHTML = '<div class="color-palette">';
+                for (let i = 1; i <= tabColors; i++) {
+                    colorPaletteHTML += `<div class="color-swatch" style="background-color: var(--tab-color-${i})" data-tab-id="${item.id}" data-color="${i}"></div>`;
+                }
+                colorPaletteHTML += '</div>';
+
+                sidebarHTML += `
+                    <div class="tab-header" draggable="true" data-item-id="${item.id}">
+                        <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.displayNumber}. ${item.title}</a>
+                        <div class="color-picker">
+                            <span class="color-picker-icon">🎨</span>
+                            ${colorPaletteHTML}
                         </div>
-                        <button class="delete-btn" data-tab-id="${tab.id}" data-file-name="${file.name}">&times;</button>
-                    </div>
-                `).join('');
+                    </div>`;
+                
+                let fileListHTML = '<p>No files in this section.</p>';
+                if (item.files.length > 0) {
+                    fileListHTML = item.files.map(file => `
+                        <div class="file-item">
+                            <div class="file-item-content" data-path="${file.path}" data-name="${file.name}">
+                                <span class="file-name">${file.name}</span>
+                                <span class="file-meta">Version: ${file.version} | Updated: ${file.date}</span>
+                            </div>
+                            <button class="delete-btn" data-tab-id="${item.id}" data-file-name="${file.name}">&times;</button>
+                        </div>
+                    `).join('');
+                }
+                contentHTML += `
+                    <div class="content-panel" id="${item.id}-content">
+                        <div class="content-panel-header"><h2>${item.displayNumber}. ${item.title}</h2></div>
+                        <div class="file-list">${fileListHTML}</div>
+                    </div>`;
+            } else if (item.type === 'section') {
+                sidebarHTML += `<div class="sidebar-section" draggable="true" data-item-id="${item.id}">${item.title}</div>`;
             }
-            contentHTML += `
-                <div class="content-panel" id="${tab.id}-content">
-                    <div class="content-panel-header"><h2>${tab.title}</h2></div>
-                    <div class="file-list">${fileListHTML}</div>
-                </div>`;
         });
-        sidebar.innerHTML = sidebarHTML;
+        sidebarContent.innerHTML = sidebarHTML;
         contentArea.innerHTML = contentHTML;
 
-        // Ensure first tab is active if none are specified
-        if (!document.querySelector('.sidebar .tab.active') && data.length > 0) {
-            const firstTabId = data[0].id;
+        if (!document.querySelector('.sidebar .tab.active') && firstTabId) {
             document.querySelector(`.tab[data-tab-id="${firstTabId}"]`).classList.add('active');
             document.getElementById(`${firstTabId}-content`).classList.add('active');
         }
     }
 
     function renderSearchResults(results, searchTerm) {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebarContent = document.querySelector('.sidebar-content');
         const contentArea = document.querySelector('.content-area');
-        sidebar.innerHTML = '<p style="padding: 1rem;">Search Results</p>';
+        sidebarContent.innerHTML = '<p style="padding: 1rem;">Search Results</p>';
         if (!results.fileNameMatches.length && !results.contentMatches.length) {
             contentArea.innerHTML = '<p style="padding: 1rem;">No results found.</p>';
             return;
@@ -152,13 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS & HANDLERS ---
     function initializeEventListeners() {
-        const sidebar = document.querySelector('.sidebar');
-        sidebar.addEventListener('click', handleSidebarClick);
-        sidebar.addEventListener('dragstart', handleDragStart);
-        sidebar.addEventListener('dragend', handleDragEnd);
-        sidebar.addEventListener('dragover', handleDragOver);
-        sidebar.addEventListener('drop', handleDrop);
-
+        const sidebarContent = document.querySelector('.sidebar-content');
+        sidebarContent.addEventListener('click', handleSidebarClick);
+        sidebarContent.addEventListener('dragstart', handleDragStart);
+        sidebarContent.addEventListener('dragend', handleDragEnd);
+        sidebarContent.addEventListener('dragover', handleDragOver);
+        sidebarContent.addEventListener('drop', handleDrop);
+        
+        document.getElementById('add-tab-btn').addEventListener('click', addTab);
+        document.getElementById('add-section-btn').addEventListener('click', addSection);
         document.querySelector('.content-area').addEventListener('click', handleContentAreaClick);
         document.getElementById('search-input').addEventListener('input', handleSearch);
         document.getElementById('import-files-btn').addEventListener('click', () => document.getElementById('file-importer').click());
@@ -269,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let results = { fileNameMatches: [], contentMatches: [] };
         const addedFileNames = new Set();
         for (const tab of binderData) {
+            if (tab.type !== 'tab') continue;
             for (const file of tab.files) {
                 if (file.name.toLowerCase().includes(searchTerm) && !addedFileNames.has(file.name)) {
                     results.fileNameMatches.push(file);
@@ -291,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const files = e.target.files;
         if (!files.length) return;
         for (const file of files) {
-            if (binderData.some(t => t.files.some(f => f.name === file.name))) {
+            if (binderData.some(t => t.type === 'tab' && t.files.some(f => f.name === file.name))) {
                 alert(`Duplicate file detected. Skipping: ${file.name}`);
                 continue;
             }
@@ -300,9 +311,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(`Skipping invalid file name: ${file.name}`);
                 continue;
             }
-            const tabIndex = parseInt(parts[0], 10) - 1;
-            if (isNaN(tabIndex) || !binderData[tabIndex]) {
-                alert(`Skipping file with invalid tab index: ${file.name}`);
+            const tabNumber = parseInt(parts[0], 10);
+            const targetTab = binderData.find(item => item.type === 'tab' && item.displayNumber === tabNumber);
+
+            if (isNaN(tabNumber) || !targetTab) {
+                alert(`Skipping file with invalid tab number in name: ${file.name}`);
                 continue;
             }
             const newFile = {
@@ -311,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: parts.slice(1).join('-'),
                 path: `files/${file.name}`
             };
-            binderData[tabIndex].files.push(newFile);
+            targetTab.files.push(newFile);
             await cacheFileContent(newFile.path);
         }
         renderBinder(binderData);
@@ -332,20 +345,53 @@ document.addEventListener('DOMContentLoaded', () => {
         updateActiveHeaderColor();
     }
 
+    function addTab() {
+        const title = prompt("Enter a title for the new tab:");
+        if (title) {
+            const existingTabNumbers = binderData.filter(i => i.type === 'tab').map(t => t.displayNumber);
+            const nextNumber = existingTabNumbers.length > 0 ? Math.max(...existingTabNumbers) + 1 : 1;
+            const newTab = {
+                id: `tab-${Date.now()}`,
+                title: title,
+                files: [],
+                type: 'tab',
+                displayNumber: nextNumber,
+                color: (binderData.filter(i => i.type === 'tab').length % tabColors) + 1
+            };
+            binderData.push(newTab);
+            renderBinder(binderData);
+            updateActiveHeaderColor();
+        }
+    }
+
+    function addSection() {
+        const title = prompt("Enter a title for the new section:");
+        if (title) {
+            const newSection = {
+                id: `section-${Date.now()}`,
+                title: title,
+                type: 'section'
+            };
+            binderData.push(newSection);
+            renderBinder(binderData);
+            updateActiveHeaderColor();
+        }
+    }
+
     // --- DRAG AND DROP ---
     let draggedElement = null;
     let draggedId = null;
 
     function handleDragStart(e) {
-        const tabHeader = e.target.closest('.tab-header');
-        if (tabHeader) {
-            draggedElement = tabHeader;
-            draggedId = tabHeader.dataset.tabId;
-            setTimeout(() => tabHeader.classList.add('dragging'), 0);
+        const draggable = e.target.closest('.tab-header, .sidebar-section');
+        if (draggable) {
+            draggedElement = draggable;
+            draggedId = draggable.dataset.itemId;
+            setTimeout(() => draggable.classList.add('dragging'), 0);
         }
     }
 
-    function handleDragEnd(e) {
+    function handleDragEnd() {
         if (draggedElement) {
             draggedElement.classList.remove('dragging');
         }
@@ -356,8 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleDragOver(e) {
         e.preventDefault();
-        const sidebar = e.currentTarget;
-        const afterElement = getDragAfterElement(sidebar, e.clientY);
+        const sidebarContent = e.currentTarget;
+        const afterElement = getDragAfterElement(sidebarContent, e.clientY);
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         if (afterElement) {
             afterElement.classList.add('drag-over');
@@ -365,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.tab-header:not(.dragging)')];
+        const draggableElements = [...container.querySelectorAll('.tab-header:not(.dragging), .sidebar-section:not(.dragging)')];
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
             const offset = y - box.top - box.height / 2;
@@ -381,9 +427,9 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         if (!draggedId) return;
 
-        const sidebar = document.querySelector('.sidebar');
-        const afterElement = getDragAfterElement(sidebar, e.clientY);
-        const draggedIndex = binderData.findIndex(tab => tab.id === draggedId);
+        const sidebarContent = document.querySelector('.sidebar-content');
+        const afterElement = getDragAfterElement(sidebarContent, e.clientY);
+        const draggedIndex = binderData.findIndex(item => item.id === draggedId);
         
         if (draggedIndex === -1) return;
 
@@ -391,8 +437,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let newIndex;
         if (afterElement) {
-            const afterId = afterElement.dataset.tabId;
-            newIndex = binderData.findIndex(tab => tab.id === afterId);
+            const afterId = afterElement.dataset.itemId;
+            newIndex = binderData.findIndex(item => item.id === afterId);
         } else {
             newIndex = binderData.length;
         }
@@ -604,4 +650,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: Thu, 25 Sep 2025 18:08:00 GMT */
+/* Build Timestamp: Thu, 25 Sep 2025 18:12:00 GMT */
