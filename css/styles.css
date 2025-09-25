@@ -161,7 +161,7 @@ body {
 .tab[data-color="6"] { background-color: var(--tab-color-6); border-left-color: var(--tab-color-6); }
 .tab[data-color="7"] { background-color: var(--tab-color-7); border-left-color: var(--tab-color-7); }
 
-.color-picker {
+.edit-tab-button {
     position: absolute;
     right: 5px;
     top: 50%;
@@ -175,7 +175,7 @@ body {
     z-index: 100;
 }
 
-.color-picker-icon {
+.edit-tab-icon {
     font-size: 16px;
     color: rgba(255, 255, 255, 0.7);
 }

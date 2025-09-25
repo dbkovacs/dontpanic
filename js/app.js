@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let pageRendering = false;
     let pageNumPending = null;
     let pdfSearchTerm = '';
-    let pdfSearchMatches = []; // Stores { pageNum, matchIndexInPage }
-    let currentMatchIndex = 0; // Index into pdfSearchMatches array
+    let pdfSearchMatches = [];
+    let currentMatchIndex = 0;
 
     const pdfCanvas = document.getElementById('pdf-canvas');
     const pdfCtx = pdfCanvas.getContext('2d');
@@ -77,24 +77,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let contentHTML = '';
         let firstTabId = null;
 
-        data.forEach((item, index) => {
+        data.forEach((item) => {
             if (item.type === 'tab') {
                 if (!firstTabId) firstTabId = item.id;
-                if (!item.color) item.color = (index % tabColors) + 1;
-
-                let colorPaletteHTML = '<div class="color-palette">';
-                for (let i = 1; i <= tabColors; i++) {
-                    colorPaletteHTML += `<div class="color-swatch" style="background-color: var(--tab-color-${i})" data-tab-id="${item.id}" data-color="${i}"></div>`;
-                }
-                colorPaletteHTML += '</div>';
-
                 sidebarHTML += `
                     <div class="tab-header" draggable="true" data-item-id="${item.id}">
                         <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.displayNumber}. ${item.title}</a>
-                        <div class="color-picker">
-                            <span class="color-picker-icon">🎨</span>
-                            ${colorPaletteHTML}
-                        </div>
+                        <button class="edit-tab-button" data-tab-id="${item.id}">
+                            <span class="edit-tab-icon">✏️</span>
+                        </button>
                     </div>`;
                 
                 let fileListHTML = '<p>No files in this section.</p>';
@@ -121,9 +112,15 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarContent.innerHTML = sidebarHTML;
         contentArea.innerHTML = contentHTML;
 
-        if (!document.querySelector('.sidebar .tab.active') && firstTabId) {
+        const activeTab = document.querySelector('.tab.active');
+        if (!activeTab && firstTabId) {
             document.querySelector(`.tab[data-tab-id="${firstTabId}"]`).classList.add('active');
             document.getElementById(`${firstTabId}-content`).classList.add('active');
+        } else if (activeTab) {
+            const stillExists = data.some(item => item.id === activeTab.dataset.tabId);
+            if (stillExists) {
+                document.getElementById(`${activeTab.dataset.tabId}-content`).classList.add('active');
+            }
         }
     }
 
@@ -173,58 +170,30 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('search-input').addEventListener('input', handleSearch);
         document.getElementById('import-files-btn').addEventListener('click', () => document.getElementById('file-importer').click());
         document.getElementById('file-importer').addEventListener('change', handleFileImport);
-        document.getElementById('modal-close-btn').addEventListener('click', () => closeModal('pdf-modal'));
+        
+        // Modal general listeners
+        document.querySelectorAll('.close-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.dataset.modalId)));
+        
+        // PDF Modal listeners
         document.getElementById('prev-page-btn').addEventListener('click', onPrevPage);
         document.getElementById('next-page-btn').addEventListener('click', onNextPage);
         document.getElementById('pdf-search-input').addEventListener('input', handlePdfSearch);
         document.getElementById('pdf-search-prev').addEventListener('click', goToPrevMatch);
         document.getElementById('pdf-search-next').addEventListener('click', goToNextMatch);
-        document.addEventListener('click', closeAllColorPalettes);
+
+        // Edit Tab Modal listeners
+        document.getElementById('edit-tab-cancel').addEventListener('click', () => closeModal('edit-tab-modal'));
+        document.getElementById('edit-tab-save').addEventListener('click', saveTabChanges);
+        document.getElementById('edit-tab-color-palette').addEventListener('click', selectColorSwatch);
     }
 
     function handleSidebarClick(e) {
-        if (e.target.matches('.color-picker-icon')) {
-            toggleColorPalette(e);
+        const editButton = e.target.closest('.edit-tab-button');
+        if (editButton) {
+            openEditModal(editButton.dataset.tabId);
         } else if (e.target.closest('.tab')) {
             handleTabClick(e);
-        } else if (e.target.matches('.color-swatch')) {
-            handleColorChange(e);
         }
-    }
-
-    function toggleColorPalette(e) {
-        e.stopPropagation();
-        const picker = e.target.closest('.color-picker');
-        const palette = picker.querySelector('.color-palette');
-        const header = picker.closest('.tab-header');
-        const isVisible = palette.classList.contains('visible');
-        
-        closeAllColorPalettes();
-        document.querySelectorAll('.tab-header').forEach(h => h.classList.remove('z-indexed'));
-
-        if (!isVisible) {
-            palette.classList.add('visible');
-            header.classList.add('z-indexed');
-        }
-    }
-
-    function closeAllColorPalettes() {
-        document.querySelectorAll('.color-palette').forEach(p => p.classList.remove('visible'));
-        document.querySelectorAll('.tab-header').forEach(h => h.classList.remove('z-indexed'));
-    }
-
-    function handleColorChange(e) {
-        const tabId = e.target.dataset.tabId;
-        const newColor = e.target.dataset.color;
-        const tabData = binderData.find(t => t.id === tabId);
-        if (tabData) {
-            tabData.color = newColor;
-        }
-        const tabElement = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
-        if (tabElement) {
-            tabElement.dataset.color = newColor;
-        }
-        updateActiveHeaderColor();
     }
     
     function updateActiveHeaderColor() {
@@ -245,7 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchInput.value) {
             searchInput.value = '';
             renderBinder(binderData);
-            setTimeout(updateActiveHeaderColor, 0);
+            setTimeout(() => {
+                const clickedTabAgain = document.querySelector(`[data-tab-id="${e.target.closest('.tab').dataset.tabId}"]`);
+                if (clickedTabAgain) clickedTabAgain.click();
+            }, 0);
+            return;
         }
         const clickedTab = e.target.closest('.tab');
         document.querySelectorAll('.sidebar .tab').forEach(t => t.classList.remove('active'));
@@ -265,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const fileItemContent = e.target.closest('.file-item-content');
         if (fileItemContent) {
-            openModal(fileItemContent.dataset.path, fileItemContent.dataset.name);
+            openPdfModal(fileItemContent.dataset.path, fileItemContent.dataset.name);
         }
     }
     
@@ -278,8 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         let results = { fileNameMatches: [], contentMatches: [] };
         const addedFileNames = new Set();
-        for (const tab of binderData) {
-            if (tab.type !== 'tab') continue;
+        for (const tab of binderData.filter(i => i.type === 'tab')) {
             for (const file of tab.files) {
                 if (file.name.toLowerCase().includes(searchTerm) && !addedFileNames.has(file.name)) {
                     results.fileNameMatches.push(file);
@@ -287,10 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const content = await getFileContent(file.path);
                 const lowerCaseContent = content.toLowerCase();
-                if (lowerCaseContent.includes(searchTerm)) {
-                    const index = lowerCaseContent.indexOf(searchTerm);
+                let index = lowerCaseContent.indexOf(searchTerm);
+                if (index !== -1) {
                     const start = Math.max(0, index - 50);
-                    const snippet = content.substring(start, start + 100);
+                    const end = Math.min(content.length, index + searchTerm.length + 50);
+                    const snippet = content.substring(start, end);
                     results.contentMatches.push({ file, tabTitle: tab.title, snippet: `...${snippet}...` });
                 }
             }
@@ -322,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: file.name,
                 version: 'v1.0',
                 date: parts.slice(1).join('-'),
-                path: `files/${file.name}`
+                path: URL.createObjectURL(file)
             };
             targetTab.files.push(newFile);
             await cacheFileContent(newFile.path);
@@ -338,7 +311,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tab) return;
         const fileIndex = tab.files.findIndex(f => f.name === fileName);
         if (fileIndex > -1) {
-            delete fileContentCache[tab.files[fileIndex].path];
+            const filePath = tab.files[fileIndex].path;
+            URL.revokeObjectURL(filePath);
+            delete fileContentCache[filePath];
             tab.files.splice(fileIndex, 1);
         }
         renderBinder(binderData);
@@ -392,9 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleDragEnd() {
-        if (draggedElement) {
-            draggedElement.classList.remove('dragging');
-        }
+        if (draggedElement) draggedElement.classList.remove('dragging');
         draggedElement = null;
         draggedId = null;
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
@@ -402,12 +375,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleDragOver(e) {
         e.preventDefault();
-        const sidebarContent = e.currentTarget;
-        const afterElement = getDragAfterElement(sidebarContent, e.clientY);
+        const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        if (afterElement) {
-            afterElement.classList.add('drag-over');
-        }
+        if (afterElement) afterElement.classList.add('drag-over');
     }
 
     function getDragAfterElement(container, y) {
@@ -426,44 +396,43 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleDrop(e) {
         e.preventDefault();
         if (!draggedId) return;
-
-        const sidebarContent = document.querySelector('.sidebar-content');
-        const afterElement = getDragAfterElement(sidebarContent, e.clientY);
+        const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
         const draggedIndex = binderData.findIndex(item => item.id === draggedId);
-        
         if (draggedIndex === -1) return;
-
         const [draggedItem] = binderData.splice(draggedIndex, 1);
-
         let newIndex;
         if (afterElement) {
-            const afterId = afterElement.dataset.itemId;
-            newIndex = binderData.findIndex(item => item.id === afterId);
+            newIndex = binderData.findIndex(item => item.id === afterElement.dataset.itemId);
         } else {
             newIndex = binderData.length;
         }
-
         binderData.splice(newIndex, 0, draggedItem);
-        
-        const activeTab = document.querySelector('.tab.active');
-        const activeTabId = activeTab ? activeTab.dataset.tabId : null;
-
+        const activeTabId = document.querySelector('.tab.active')?.dataset.tabId;
         renderBinder(binderData);
-        
         if (activeTabId) {
             const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
             if (newActiveTab) {
                 newActiveTab.classList.add('active');
-                const newActivePanel = document.querySelector(newActiveTab.dataset.tabTarget);
-                if (newActivePanel) newActivePanel.classList.add('active');
+                document.querySelector(newActiveTab.dataset.tabTarget)?.classList.add('active');
             }
         }
-        
         updateActiveHeaderColor();
     }
     
     // --- MODAL & PDF VIEWER ---
-    function openModal(pdfUrl, fileName) {
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+        if (modalId === 'pdf-modal') {
+            pdfDoc = null;
+            currentPdfUrl = '';
+            pdfSearchTerm = '';
+            pdfSearchMatches = [];
+            document.getElementById('pdf-search-input').value = '';
+            pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+        }
+    }
+
+    function openPdfModal(pdfUrl, fileName) {
         document.getElementById('pdf-title').textContent = fileName;
         document.getElementById('pdf-modal').classList.remove('hidden');
         currentPdfUrl = pdfUrl;
@@ -479,24 +448,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).classList.add('hidden');
-        pdfDoc = null;
-        currentPdfUrl = '';
-        pdfSearchTerm = '';
-        pdfSearchMatches = [];
-        document.getElementById('pdf-search-input').value = '';
-        pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+    // --- EDIT TAB MODAL ---
+    function openEditModal(tabId) {
+        const tabData = binderData.find(t => t.id === tabId);
+        if (!tabData) return;
+
+        document.getElementById('edit-tab-id').value = tabId;
+        document.getElementById('edit-tab-name').value = tabData.title;
+
+        const palette = document.getElementById('edit-tab-color-palette');
+        palette.innerHTML = '';
+        for (let i = 1; i <= tabColors; i++) {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = `var(--tab-color-${i})`;
+            swatch.dataset.color = i;
+            if (i === tabData.color) {
+                swatch.classList.add('selected');
+            }
+            palette.appendChild(swatch);
+        }
+        
+        document.getElementById('edit-tab-modal').classList.remove('hidden');
     }
 
+    function selectColorSwatch(e) {
+        if (e.target.classList.contains('color-swatch')) {
+            document.querySelectorAll('#edit-tab-color-palette .color-swatch').forEach(s => s.classList.remove('selected'));
+            e.target.classList.add('selected');
+        }
+    }
+
+    function saveTabChanges() {
+        const tabId = document.getElementById('edit-tab-id').value;
+        const newTitle = document.getElementById('edit-tab-name').value.trim();
+        const selectedColorSwatch = document.querySelector('#edit-tab-color-palette .color-swatch.selected');
+        
+        const tabData = binderData.find(t => t.id === tabId);
+        if (!tabData) return;
+
+        if (newTitle) {
+            tabData.title = newTitle;
+        }
+
+        if (selectedColorSwatch) {
+            tabData.color = parseInt(selectedColorSwatch.dataset.color, 10);
+        }
+        
+        const activeTabId = document.querySelector('.tab.active')?.dataset.tabId;
+        renderBinder(binderData);
+        if (activeTabId) {
+            const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
+            if (newActiveTab) {
+                 newActiveTab.classList.add('active');
+                 document.querySelector(newActiveTab.dataset.tabTarget)?.classList.add('active');
+            }
+        }
+        updateActiveHeaderColor();
+        closeModal('edit-tab-modal');
+    }
+
+    // --- PDF RENDERING & SEARCH ---
     function renderPage(num, highlightMatchInPage = null) {
         pageRendering = true;
         pdfDoc.getPage(num).then(page => {
-            const container = document.querySelector('.modal-body');
-            const desiredWidth = container.clientWidth * 0.98;
-            const viewportAtScale1 = page.getViewport({ scale: 1 });
-            const scale = desiredWidth / viewportAtScale1.width;
-            const viewport = page.getViewport({ scale: scale });
+            const container = document.getElementById('pdf-viewer-container');
+            const desiredWidth = container.clientWidth;
+            const viewport = page.getViewport({ scale: desiredWidth / page.getViewport({scale: 1}).width });
             pdfCanvas.height = viewport.height;
             pdfCanvas.width = viewport.width;
             const renderContext = { canvasContext: pdfCtx, viewport: viewport };
@@ -553,72 +571,71 @@ document.addEventListener('DOMContentLoaded', () => {
         cache.pageTexts.forEach((pageText, pageIndex) => {
             const regex = new RegExp(searchTermLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             let match;
-            let matchInPageIndex = 0;
             while ((match = regex.exec(pageText.toLowerCase())) !== null) {
-                pdfSearchMatches.push({ pageNum: pageIndex + 1, matchIndexInPage: matchInPageIndex++ });
+                pdfSearchMatches.push({ pageNum: pageIndex + 1, matchIndex: match.index });
             }
         });
         currentMatchIndex = 0;
         navigateToMatch();
     }
     
-    function highlightMatchesOnPage(highlightIndexInPage = null) {
+    function highlightMatchesOnPage(currentMatch) {
         const textLayer = document.getElementById('text-layer');
-        const highlights = textLayer.querySelectorAll('mark');
-        highlights.forEach(mark => {
-            const parent = mark.parentNode;
-            parent.replaceChild(document.createTextNode(mark.textContent), mark);
-            parent.normalize();
+        const textDivs = textLayer.querySelectorAll("span");
+        textDivs.forEach(div => {
+            let content = div.textContent;
+            if(div.querySelector('mark')) {
+                content = div.querySelector('mark').textContent;
+            }
+            div.innerHTML = '';
+            div.appendChild(document.createTextNode(content));
         });
+
         if (!pdfSearchTerm || pdfSearchTerm.length < 2) return;
         
-        const textDivs = Array.from(textLayer.querySelectorAll('span'));
-        if (textDivs.length === 0) return;
+        const matchesOnPage = pdfSearchMatches.filter(m => m.pageNum === pageNum);
+        let matchIndexInPage = 0;
 
-        const walker = document.createTreeWalker(textLayer, NodeFilter.SHOW_TEXT);
-        const allTextNodes = [];
-        let node;
-        while(node = walker.nextNode()) {
-            allTextNodes.push(node);
-        }
-
-        const regex = new RegExp(pdfSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        allTextNodes.forEach(textNode => {
+        textDivs.forEach(div => {
+            const text = div.textContent;
+            const lowerText = text.toLowerCase();
+            const regex = new RegExp(pdfSearchTerm.toLowerCase(), 'g');
             let match;
             let lastIndex = 0;
-            const text = textNode.textContent;
-            const fragment = document.createDocumentFragment();
-            
-            while ((match = regex.exec(text)) !== null) {
-                fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+            const newContent = document.createDocumentFragment();
+
+            while ((match = regex.exec(lowerText)) !== null) {
+                newContent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
                 const mark = document.createElement('mark');
-                mark.textContent = match[0];
-                fragment.appendChild(mark);
+                mark.textContent = text.slice(match.index, match.index + pdfSearchTerm.length);
+                
+                if (currentMatch && match.index === currentMatch.matchIndex) {
+                    mark.classList.add('current-highlight');
+                    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                newContent.appendChild(mark);
                 lastIndex = regex.lastIndex;
+                matchIndexInPage++;
             }
-            fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-            textNode.parentNode.replaceChild(fragment, textNode);
+            newContent.appendChild(document.createTextNode(text.slice(lastIndex)));
+            div.innerHTML = '';
+            div.appendChild(newContent);
         });
-        
-        const allMarks = textLayer.querySelectorAll('mark');
-        if (highlightIndexInPage !== null && allMarks[highlightIndexInPage]) {
-            allMarks[highlightIndexInPage].classList.add('current-highlight');
-            allMarks[highlightIndexInPage].scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        }
     }
 
     function navigateToMatch() {
         if (pdfSearchMatches.length === 0) {
-            highlightMatchesOnPage();
+            highlightMatchesOnPage(null);
             updateSearchUIDisplay();
             return;
         }
         const match = pdfSearchMatches[currentMatchIndex];
         if (pageNum !== match.pageNum) {
             pageNum = match.pageNum;
-            queueRenderPage(pageNum, match.matchIndexInPage);
+            queueRenderPage(pageNum, match);
         } else {
-            highlightMatchesOnPage(match.matchIndexInPage);
+            highlightMatchesOnPage(match);
         }
         updateSearchUIDisplay();
     }
@@ -650,4 +667,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: Thu, 25 Sep 2025 18:12:00 GMT */

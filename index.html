@@ -36,7 +36,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="pdf-title">Loading Document...</h2>
-                <button id="modal-close-btn" class="close-btn">&times;</button>
+                <button class="close-btn" data-modal-id="pdf-modal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="pdf-controls">
@@ -54,6 +54,31 @@
                     <canvas id="pdf-canvas"></canvas>
                     <div id="text-layer"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-tab-modal" class="modal-overlay hidden">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Edit Tab</h2>
+                <button class="close-btn" data-modal-id="edit-tab-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-tab-id">
+                <div class="form-group">
+                    <label for="edit-tab-name">Tab Name</label>
+                    <input type="text" id="edit-tab-name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Tab Color</label>
+                    <div id="edit-tab-color-palette" class="color-palette-modal">
+                        </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="edit-tab-cancel" class="btn-secondary">Cancel</button>
+                <button id="edit-tab-save" class="btn-primary">Save Changes</button>
             </div>
         </div>
     </div>
