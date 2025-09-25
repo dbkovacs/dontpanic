@@ -19,8 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let pdfSearchMatches = [];
     let currentMatchIndex = 0;
 
+    // --- DOM ELEMENTS ---
     const pdfCanvas = document.getElementById('pdf-canvas');
     const pdfCtx = pdfCanvas.getContext('2d');
+    const menuToggleBtn = document.getElementById('menu-toggle-btn');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
     
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
@@ -164,6 +168,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarContent.addEventListener('dragover', handleDragOver);
         sidebarContent.addEventListener('drop', handleDrop);
         
+        menuToggleBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
         document.getElementById('add-tab-btn').addEventListener('click', addTab);
         document.getElementById('add-section-btn').addEventListener('click', addSection);
         document.querySelector('.content-area').addEventListener('click', handleContentAreaClick);
@@ -196,6 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 250); // Debounce resize event
         });
+    }
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('is-open');
+        sidebarOverlay.classList.toggle('hidden');
     }
 
     function handleSidebarClick(e) {
@@ -240,6 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
             targetPanel.classList.add('active');
         }
         updateActiveHeaderColor();
+
+        // Close sidebar on mobile after selection
+        if (sidebar.classList.contains('is-open')) {
+            toggleSidebar();
+        }
     }
     
     function handleContentAreaClick(e) {
@@ -682,4 +699,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build: 2025-09-25T19:31:37.319Z */
+/* Build: 2025-09-25T20:07:36.512Z */
