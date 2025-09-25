@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let pdfSearchMatches = [];
     let currentMatchIndex = 0;
 
+    // --- INTERACTION STATE ---
+    let longPressTimer = null;
+    let longPressTarget = null;
+    const LONG_PRESS_DURATION = 500; // ms
+
     // --- DOM ELEMENTS ---
     const pdfCanvas = document.getElementById('pdf-canvas');
     const pdfCtx = pdfCanvas.getContext('2d');
@@ -86,10 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!firstTabId) firstTabId = item.id;
                 sidebarHTML += `
                     <div class="tab-header" draggable="true" data-item-id="${item.id}">
-                        <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.displayNumber}. ${item.title}</a>
-                        <button class="edit-tab-button" data-tab-id="${item.id}">
-                            <span class="edit-tab-icon">✏️</span>
-                        </button>
+                        <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.title} [${item.displayNumber}]</a>
                     </div>`;
                 
                 let fileListHTML = '<p>No files in this section.</p>';
@@ -106,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 contentHTML += `
                     <div class="content-panel" id="${item.id}-content">
-                        <div class="content-panel-header"><h2>${item.displayNumber}. ${item.title}</h2></div>
+                        <div class="content-panel-header"><h2>${item.title} [${item.displayNumber}]</h2></div>
                         <div class="file-list">${fileListHTML}</div>
                     </div>`;
             } else if (item.type === 'section') {
@@ -162,7 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- EVENT LISTENERS & HANDLERS ---
     function initializeEventListeners() {
         const sidebarContent = document.querySelector('.sidebar-content');
-        sidebarContent.addEventListener('click', handleSidebarClick);
+        sidebarContent.addEventListener('mousedown', handlePressStart);
+        sidebarContent.addEventListener('touchstart', handlePressStart);
+        sidebarContent.addEventListener('mouseup', handlePressEnd);
+        sidebarContent.addEventListener('touchend', handlePressEnd);
+        sidebarContent.addEventListener('touchcancel', handlePressCancel);
         sidebarContent.addEventListener('dragstart', handleDragStart);
         sidebarContent.addEventListener('dragend', handleDragEnd);
         sidebarContent.addEventListener('dragover', handleDragOver);
@@ -178,22 +184,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('import-files-btn').addEventListener('click', () => document.getElementById('file-importer').click());
         document.getElementById('file-importer').addEventListener('change', handleFileImport);
         
-        // Modal general listeners
         document.querySelectorAll('.close-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.dataset.modalId)));
         
-        // PDF Modal listeners
         document.getElementById('prev-page-btn').addEventListener('click', onPrevPage);
         document.getElementById('next-page-btn').addEventListener('click', onNextPage);
         document.getElementById('pdf-search-input').addEventListener('input', handlePdfSearch);
         document.getElementById('pdf-search-prev').addEventListener('click', goToPrevMatch);
         document.getElementById('pdf-search-next').addEventListener('click', goToNextMatch);
 
-        // Edit Tab Modal listeners
         document.getElementById('edit-tab-cancel').addEventListener('click', () => closeModal('edit-tab-modal'));
         document.getElementById('edit-tab-save').addEventListener('click', saveTabChanges);
         document.getElementById('edit-tab-color-palette').addEventListener('click', selectColorSwatch);
 
-        // Resize listener for PDF viewer
         let resizeTimer;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);
@@ -201,22 +203,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pdfDoc && !document.getElementById('pdf-modal').classList.contains('hidden')) {
                     renderPage(pageNum);
                 }
-            }, 250); // Debounce resize event
+            }, 250);
         });
+    }
+
+    function handlePressStart(e) {
+        const target = e.target.closest('.tab, .sidebar-section');
+        if (!target) return;
+
+        longPressTarget = target;
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null; // Prevent click from firing
+            if (target.matches('.tab')) {
+                openEditModal(target.dataset.tabId);
+            } else if (target.matches('.sidebar-section')) {
+                editSectionName(target.dataset.itemId);
+            }
+        }, LONG_PRESS_DURATION);
+    }
+
+    function handlePressEnd(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+            // This was a short press (a tap/click)
+            if (longPressTarget && longPressTarget.matches('.tab')) {
+                handleTabClick(e);
+            }
+        }
+    }
+    
+    function handlePressCancel(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
     }
 
     function toggleSidebar() {
         sidebar.classList.toggle('is-open');
         sidebarOverlay.classList.toggle('hidden');
-    }
-
-    function handleSidebarClick(e) {
-        const editButton = e.target.closest('.edit-tab-button');
-        if (editButton) {
-            openEditModal(editButton.dataset.tabId);
-        } else if (e.target.closest('.tab')) {
-            handleTabClick(e);
-        }
     }
     
     function updateActiveHeaderColor() {
@@ -233,17 +259,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleTabClick(e) {
         e.preventDefault();
+        const clickedTab = e.target.closest('.tab');
+        if (!clickedTab) return;
+
         const searchInput = document.getElementById('search-input');
         if (searchInput.value) {
             searchInput.value = '';
             renderBinder(binderData);
             setTimeout(() => {
-                const clickedTabAgain = document.querySelector(`[data-tab-id="${e.target.closest('.tab').dataset.tabId}"]`);
+                const clickedTabAgain = document.querySelector(`[data-tab-id="${clickedTab.dataset.tabId}"]`);
                 if (clickedTabAgain) clickedTabAgain.click();
             }, 0);
             return;
         }
-        const clickedTab = e.target.closest('.tab');
+        
         document.querySelectorAll('.sidebar .tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
         clickedTab.classList.add('active');
@@ -253,7 +282,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateActiveHeaderColor();
 
-        // Close sidebar on mobile after selection
         if (sidebar.classList.contains('is-open')) {
             toggleSidebar();
         }
@@ -380,12 +408,24 @@ document.addEventListener('DOMContentLoaded', () => {
             updateActiveHeaderColor();
         }
     }
+    
+    function editSectionName(sectionId) {
+        const section = binderData.find(item => item.id === sectionId);
+        if (!section) return;
+        const newTitle = prompt("Enter the new section name:", section.title);
+        if (newTitle && newTitle.trim() !== "") {
+            section.title = newTitle.trim();
+            renderBinder(binderData);
+            updateActiveHeaderColor();
+        }
+    }
 
     // --- DRAG AND DROP ---
     let draggedElement = null;
     let draggedId = null;
 
     function handleDragStart(e) {
+        handlePressCancel(); // Cancel long press if drag starts
         const draggable = e.target.closest('.tab-header, .sidebar-section');
         if (draggable) {
             draggedElement = draggable;
@@ -472,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPage(pageNum);
         }).catch(err => {
             console.error('Error opening PDF:', err);
-            alert(`Could not open PDF. Make sure you are running a local server and the file exists at: ${pdfUrl}`);
+            alert(`Could not open PDF. The file may be corrupt or an invalid format.`);
         });
     }
 
@@ -559,7 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const textLayerDiv = document.getElementById('text-layer');
                 if(!textLayerDiv) return;
                 textLayerDiv.innerHTML = '';
-                // The canvas is now a block element and centered, so we style the textLayer to match
                 textLayerDiv.style.width = pdfCanvas.width + 'px';
                 textLayerDiv.style.height = pdfCanvas.height + 'px';
                 pdfjsLib.renderTextLayer({ textContent, container: textLayerDiv, viewport, textDivs: [] });
