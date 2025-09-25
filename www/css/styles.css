@@ -1,0 +1,415 @@
+/* /www/css/style.css */
+:root {
+    --primary-bg: #2c2c2e;
+    --secondary-bg: #1c1c1e;
+    --tertiary-bg: #3a3a3c;
+    --primary-text: #ffffff;
+    --secondary-text: #8e8e93;
+    --highlight-color: #0a84ff;
+    --danger-color: #ff3b30;
+    --header-height: 60px;
+    --footer-height: 30px;
+    --sidebar-width: 280px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--primary-bg);
+    color: var(--primary-text);
+    overflow-x: hidden;
+}
+
+#app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* --- Header --- */
+#app-header {
+    display: flex;
+    align-items: center;
+    background-color: var(--secondary-bg);
+    padding: 0 15px;
+    height: var(--header-height);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--tertiary-bg);
+}
+
+.menu-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--primary-text);
+    font-size: 24px;
+    cursor: pointer;
+    margin-right: 15px;
+}
+
+.header-title {
+    font-size: 1.2rem;
+    white-space: nowrap;
+}
+
+.search-container {
+    flex-grow: 1;
+    margin: 0 15px;
+}
+
+#global-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: var(--tertiary-bg);
+    border: 1px solid #555;
+    border-radius: 8px;
+    color: var(--primary-text);
+    font-size: 1rem;
+}
+
+.import-button {
+    background-color: var(--highlight-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* --- Sidebar --- */
+#sidebar {
+    background-color: var(--secondary-bg);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    width: var(--sidebar-width);
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000;
+    border-right: 1px solid var(--tertiary-bg);
+}
+
+#sidebar.open {
+    transform: translateX(0);
+}
+
+#sidebar-content {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.sidebar-tab, .sidebar-section {
+    padding: 12px 15px;
+    cursor: pointer;
+    border-left: 4px solid transparent;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-tab.active {
+    background-color: var(--tertiary-bg);
+}
+
+.sidebar-section {
+    font-weight: bold;
+    color: var(--secondary-text);
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    margin-top: 15px;
+    cursor: default;
+}
+
+.tab-color-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.edit-tab-icon {
+    opacity: 0.5;
+    cursor: pointer;
+}
+.edit-tab-icon:hover {
+    opacity: 1;
+}
+
+.sidebar-actions {
+    padding: 15px;
+    border-top: 1px solid var(--tertiary-bg);
+}
+
+.sidebar-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--highlight-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-weight: 500;
+}
+.sidebar-btn:first-child {
+    margin-top: 0;
+}
+
+/* --- Sidebar Overlay --- */
+#sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+#sidebar-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+/* --- Main Content --- */
+#main-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: var(--primary-bg);
+}
+
+.content-header {
+    border-bottom: 2px solid;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.file-list-item {
+    background-color: var(--secondary-bg);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.file-list-item:hover {
+    background-color: var(--tertiary-bg);
+}
+
+.delete-file-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+#search-results-container h3 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--tertiary-bg);
+    padding-bottom: 5px;
+}
+.search-result-item {
+    background-color: var(--secondary-bg);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+.search-result-item mark {
+    background-color: #f7d759;
+    color: black;
+    padding: 1px 2px;
+    border-radius: 3px;
+}
+.content-mention {
+    border-left: 3px solid var(--highlight-color);
+    padding-left: 10px;
+}
+.content-mention p {
+    color: var(--secondary-text);
+}
+
+
+/* --- Footer --- */
+#app-footer {
+    height: var(--footer-height);
+    background-color: var(--secondary-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: var(--secondary-text);
+    flex-shrink: 0;
+    border-top: 1px solid var(--tertiary-bg);
+}
+
+/* --- Modals --- */
+.modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background-color: var(--primary-bg);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    width: 95%;
+    height: 95%;
+    max-width: 1200px;
+    overflow: hidden;
+}
+
+.small-modal {
+    width: 90%;
+    max-width: 400px;
+    height: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: var(--secondary-bg);
+    border-bottom: 1px solid var(--tertiary-bg);
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    color: var(--primary-text);
+    font-size: 1.8rem;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body label {
+    display: block;
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+.modal-body input[type="text"], .modal-body input[type="color"] {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--tertiary-bg);
+    border: 1px solid #555;
+    border-radius: 5px;
+    color: var(--primary-text);
+}
+.modal-body input[type="color"] {
+    padding: 5px;
+    height: 40px;
+}
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--highlight-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 20px;
+    font-weight: 500;
+}
+
+/* --- PDF Viewer --- */
+.pdf-viewer-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+.pdf-search-wrapper, .pdf-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+#pdf-search-input {
+    background-color: var(--tertiary-bg);
+    border: 1px solid #555;
+    border-radius: 5px;
+    color: var(--primary-text);
+    padding: 5px 8px;
+}
+.pdf-nav-btn {
+    background-color: var(--tertiary-bg);
+    border: 1px solid #555;
+    color: var(--primary-text);
+    border-radius: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+#pdf-canvas-container {
+    flex-grow: 1;
+    overflow: auto;
+    padding: 20px;
+    text-align: center;
+}
+#pdf-canvas {
+    border: 1px solid var(--tertiary-bg);
+    max-width: 100%;
+    height: auto;
+}
+.textLayer ::selection {
+    background: rgba(0, 84, 255, 0.3);
+}
+
+/* --- Desktop / Large Screen Layout --- */
+@media (min-width: 768px) {
+    .menu-toggle-btn, #sidebar-overlay {
+        display: none;
+    }
+
+    #app-container {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) 1fr;
+        grid-template-rows: var(--header-height) 1fr var(--footer-height);
+        grid-template-areas:
+            "header header"
+            "sidebar main"
+            "footer footer";
+        height: 100vh;
+    }
+
+    #app-header { grid-area: header; }
+    #main-content { grid-area: main; }
+    #app-footer { grid-area: footer; }
+
+    #sidebar {
+        grid-area: sidebar;
+        position: static;
+        transform: none;
+        height: auto;
+        border-right: 1px solid var(--tertiary-bg);
+    }
+}
