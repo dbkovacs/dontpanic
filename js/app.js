@@ -375,17 +375,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const afterElement = getDragAfterElement(sidebar, e.clientY);
         
         if (draggedElement) {
-             if (afterElement == null) {
-                sidebar.appendChild(draggedElement);
-            } else {
+            const draggedTabId = draggedElement.dataset.tabId;
+            const draggedContentPanel = document.getElementById(`${draggedTabId}-content`);
+            const contentArea = document.querySelector('.content-area');
+
+            if (afterElement) {
+                const afterTabId = afterElement.dataset.tabId;
+                const afterContentPanel = document.getElementById(`${afterTabId}-content`);
                 sidebar.insertBefore(draggedElement, afterElement);
+                if (draggedContentPanel && afterContentPanel) {
+                    contentArea.insertBefore(draggedContentPanel, afterContentPanel);
+                }
+            } else {
+                sidebar.appendChild(draggedElement);
+                if (draggedContentPanel) {
+                    contentArea.appendChild(draggedContentPanel);
+                }
             }
+
+            // Update the binderData array to match the new DOM order
+            const newOrderIds = [...sidebar.querySelectorAll('.tab-header')].map(th => th.dataset.tabId);
+            binderData = newOrderIds.map(id => {
+                return binderData.find(tab => tab.id === id);
+            });
         }
-        
-        // Update the binderData array to match the new DOM order
-        const newOrderIds = [...sidebar.querySelectorAll('.tab-header')].map(th => th.dataset.tabId);
-        const newBinderData = newOrderIds.map(id => binderData.find(tab => tab.id === id));
-        binderData = newBinderData;
     }
     
     
@@ -577,4 +590,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: Thu, 25 Sep 2025 08:20:37 GMT */
+/* Build Timestamp: Thu, 25 Sep 2025 18:05:00 GMT */
