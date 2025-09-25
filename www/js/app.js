@@ -1,458 +1,562 @@
 /* /www/js/app.js */
 document.addEventListener('DOMContentLoaded', () => {
-    // STATE
-    let state = {
-        tabs: [
-            { id: 1, name: "1. Procedures", color: "#0a84ff", files: [] },
-            { id: 2, name: "2. Checklists", color: "#30d158", files: [] },
-            { id: 3, name: "3. Reference", color: "#ff453a", files: [] }
-        ],
-        sections: [],
-        activeTabId: 1,
-        nextTabId: 4,
-        nextSectionId: 1,
-        sidebarOrder: [1, 2, 3],
-        fileCache: {} // { fileId: { name, content, url } }
-    };
+    // --- DATA ---
+    let binderData = [
+        { id: 'tab-1', title: 'Procedures', files: [], color: 1, type: 'tab', displayNumber: 1 },
+        { id: 'tab-2', title: 'Checklists', files: [], color: 2, type: 'tab', displayNumber: 2 },
+        { id: 'tab-3', title: 'Reference', files: [], color: 3, type: 'tab', displayNumber: 3 },
+    ];
+    let fileContentCache = {};
+    const tabColors = 7;
 
-    // DOM ELEMENTS
-    const sidebarContent = document.getElementById('sidebar-content');
-    const mainContent = document.getElementById('main-content');
-    const importBtnMain = document.getElementById('import-btn-main');
-    const fileInput = document.getElementById('file-input');
-    const addNewTabBtn = document.getElementById('add-new-tab-btn');
-    const addNewSectionBtn = document.getElementById('add-new-section-btn');
-    const globalSearchInput = document.getElementById('global-search-input');
-    const timestampEl = document.getElementById('build-timestamp');
-    
-    // PDF Viewer Elements
-    const pdfViewerModal = document.getElementById('pdf-viewer-modal');
-    const pdfViewerClose = document.getElementById('pdf-viewer-close');
-    const pdfCanvas = document.getElementById('pdf-canvas');
-    const pdfTitle = document.getElementById('pdf-viewer-title');
-    const pageNumEl = document.getElementById('pdf-page-num');
-    const pageCountEl = document.getElementById('pdf-page-count');
-    const prevPageBtn = document.getElementById('pdf-prev-page');
-    const nextPageBtn = document.getElementById('pdf-next-page');
-    const pdfSearchInput = document.getElementById('pdf-search-input');
-    const pdfSearchPrev = document.getElementById('pdf-search-prev');
-    const pdfSearchNext = document.getElementById('pdf-search-next');
-    const pdfSearchMatches = document.getElementById('pdf-search-matches');
-    
-    // Edit Tab Modal Elements
-    const editTabModal = document.getElementById('edit-tab-modal');
-    const editTabClose = document.getElementById('edit-tab-close');
-    const editTabNameInput = document.getElementById('edit-tab-name-input');
-    const editTabColorInput = document.getElementById('edit-tab-color-input');
-    const saveTabChangesBtn = document.getElementById('save-tab-changes-btn');
-
-    // Mobile Navigation Elements
-    const menuToggleBtn = document.getElementById('menu-toggle-btn');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-
-
-    // PDF VIEWER STATE
+    // --- PDF VIEWER STATE ---
     let pdfDoc = null;
+    let currentPdfUrl = '';
     let pageNum = 1;
     let pageRendering = false;
     let pageNumPending = null;
-    let currentSearchTerm = '';
-    let searchMatches = [];
-    let currentMatchIndex = -1;
+    let pdfSearchTerm = '';
+    let pdfSearchMatches = [];
+    let currentMatchIndex = 0;
+
+    const pdfCanvas = document.getElementById('pdf-canvas');
+    const pdfCtx = pdfCanvas.getContext('2d');
+    
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
+    }
 
     // --- INITIALIZATION ---
-    function init() {
-        loadState();
-        renderApp();
-        setupEventListeners();
-        updateTimestamp();
-    }
-    
-    function updateTimestamp() {
-        if(timestampEl) {
-            timestampEl.textContent = `Build: ${new Date().toISOString()}`;
-        }
-    }
-
-    // --- STATE MANAGEMENT ---
-    function saveState() {
-        const stateToSave = { ...state, fileCache: {} }; // Don't save large file cache
-        Object.keys(state.fileCache).forEach(fileId => {
-            stateToSave.fileCache[fileId] = {
-                name: state.fileCache[fileId].name,
-                url: state.fileCache[fileId].url,
-                // content is omitted
-            };
-        });
-        localStorage.setItem('digitalBinderState', JSON.stringify(stateToSave));
-    }
-
-    function loadState() {
-        const savedState = localStorage.getItem('digitalBinderState');
-        if (savedState) {
-            const parsedState = JSON.parse(savedState);
-            state = { ...state, ...parsedState };
-            // Re-cache content for existing files
-            Object.values(state.fileCache).forEach(file => {
-                if (file.url) {
-                    fetch(file.url).then(res => res.blob()).then(blob => {
-                        cacheFileContent(file.name, blob);
-                    });
-                }
-            });
-        }
-    }
-
-    // --- RENDERING ---
-    function renderApp() {
-        renderSidebar();
-        if (globalSearchInput.value) {
-            performGlobalSearch(globalSearchInput.value);
-        } else {
-             renderMainContent();
-        }
-    }
-
-    function renderSidebar() {
-        sidebarContent.innerHTML = '';
-        state.sidebarOrder.forEach(id => {
-            const tab = state.tabs.find(t => t.id === id);
-            const section = state.sections.find(s => s.id === id);
-            
-            if (tab) {
-                const tabEl = document.createElement('div');
-                tabEl.className = 'sidebar-tab';
-                tabEl.dataset.tabId = tab.id;
-                if (tab.id === state.activeTabId) {
-                    tabEl.classList.add('active');
-                }
-                tabEl.innerHTML = `
-                    <div style="display: flex; align-items: center;">
-                        <span class="tab-color-indicator" style="background-color: ${tab.color};"></span>
-                        <span>${tab.name}</span>
-                    </div>
-                    <span class="edit-tab-icon" data-tab-id="${tab.id}">&#9998;</span>
-                `;
-                sidebarContent.appendChild(tabEl);
-            } else if (section) {
-                const sectionEl = document.createElement('div');
-                sectionEl.className = 'sidebar-section';
-                sectionEl.textContent = section.name;
-                sidebarContent.appendChild(sectionEl);
+    function initializeApp() {
+        setBuildTimestamp();
+        renderBinder(binderData);
+        initializeEventListeners();
+        binderData.forEach(item => {
+            if (item.type === 'tab') {
+                item.files.forEach(file => cacheFileContent(file.path));
             }
         });
+        updateActiveHeaderColor();
     }
 
-    function renderMainContent() {
-        const activeTab = state.tabs.find(t => t.id === state.activeTabId);
-        if (!activeTab) {
-            mainContent.innerHTML = '<p>Select a tab to view files.</p>';
+    // --- PDF & CACHING ---
+    async function getFileContent(filePath) {
+        if (fileContentCache[filePath]) {
+            return fileContentCache[filePath].fullText;
+        }
+        const cache = await cacheFileContent(filePath);
+        return cache.fullText;
+    }
+
+    async function cacheFileContent(filePath) {
+        try {
+            const pdf = await pdfjsLib.getDocument(filePath).promise;
+            const pageTexts = [];
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                pageTexts.push(textContent.items.map(item => item.str).join(''));
+            }
+            const fullText = pageTexts.join('\n');
+            fileContentCache[filePath] = { fullText, pageTexts };
+            return fileContentCache[filePath];
+        } catch (error) {
+            console.error(`Failed to load or parse ${filePath}:`, error);
+            const emptyCache = { fullText: '', pageTexts: [] };
+            fileContentCache[filePath] = emptyCache;
+            return emptyCache;
+        }
+    }
+
+    // --- UI RENDERING ---
+    function renderBinder(data) {
+        const sidebarContent = document.querySelector('.sidebar-content');
+        const contentArea = document.querySelector('.content-area');
+        if (!sidebarContent || !contentArea) return;
+        let sidebarHTML = '';
+        let contentHTML = '';
+        let firstTabId = null;
+
+        data.forEach((item) => {
+            if (item.type === 'tab') {
+                if (!firstTabId) firstTabId = item.id;
+                sidebarHTML += `
+                    <div class="tab-header" draggable="true" data-item-id="${item.id}">
+                        <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.displayNumber}. ${item.title}</a>
+                        <button class="edit-tab-button" data-tab-id="${item.id}">
+                            <span class="edit-tab-icon">✏️</span>
+                        </button>
+                    </div>`;
+                
+                let fileListHTML = '<p>No files in this section.</p>';
+                if (item.files.length > 0) {
+                    fileListHTML = item.files.map(file => `
+                        <div class="file-item">
+                            <div class="file-item-content" data-path="${file.path}" data-name="${file.name}">
+                                <span class="file-name">${file.name}</span>
+                                <span class="file-meta">Version: ${file.version} | Updated: ${file.date}</span>
+                            </div>
+                            <button class="delete-btn" data-tab-id="${item.id}" data-file-name="${file.name}">&times;</button>
+                        </div>
+                    `).join('');
+                }
+                contentHTML += `
+                    <div class="content-panel" id="${item.id}-content">
+                        <div class="content-panel-header"><h2>${item.displayNumber}. ${item.title}</h2></div>
+                        <div class="file-list">${fileListHTML}</div>
+                    </div>`;
+            } else if (item.type === 'section') {
+                sidebarHTML += `<div class="sidebar-section" draggable="true" data-item-id="${item.id}">${item.title}</div>`;
+            }
+        });
+        sidebarContent.innerHTML = sidebarHTML;
+        contentArea.innerHTML = contentHTML;
+
+        const activeTab = document.querySelector('.tab.active');
+        if (!activeTab && firstTabId) {
+            document.querySelector(`.tab[data-tab-id="${firstTabId}"]`).classList.add('active');
+            document.getElementById(`${firstTabId}-content`).classList.add('active');
+        } else if (activeTab) {
+            const stillExists = data.some(item => item.id === activeTab.dataset.tabId);
+            if (stillExists) {
+                document.getElementById(`${activeTab.dataset.tabId}-content`).classList.add('active');
+            }
+        }
+    }
+
+    function renderSearchResults(results, searchTerm) {
+        const sidebarContent = document.querySelector('.sidebar-content');
+        const contentArea = document.querySelector('.content-area');
+        sidebarContent.innerHTML = '<p style="padding: 1rem;">Search Results</p>';
+        if (!results.fileNameMatches.length && !results.contentMatches.length) {
+            contentArea.innerHTML = '<p style="padding: 1rem;">No results found.</p>';
             return;
         }
-
-        let fileListHTML = activeTab.files.map(file => `
-            <div class="file-list-item" data-file-id="${file.id}" data-tab-id="${activeTab.id}">
-                <span>${file.name}</span>
-                <button class="delete-file-btn" data-file-id="${file.id}" data-tab-id="${activeTab.id}">&times;</button>
-            </div>
-        `).join('');
-
-        if (activeTab.files.length === 0) {
-            fileListHTML = '<p>No files in this section.</p>';
+        let contentHTML = '<div class="search-results-container">';
+        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        if (results.fileNameMatches.length) {
+            contentHTML += '<h3>Matching Files</h3><div class="file-list">';
+            contentHTML += results.fileNameMatches.map(file => {
+                const highlightedName = file.name.replace(regex, `<mark>$1</mark>`);
+                return `<div class="file-item"><div class="file-item-content" data-path="${file.path}" data-name="${file.name}"><span class="file-name">${highlightedName}</span><span class="file-meta">Version: ${file.version} | Updated: ${file.date}</span></div></div>`;
+            }).join('');
+            contentHTML += '</div>';
         }
-
-        mainContent.innerHTML = `
-            <div class="content-header" style="border-color: ${activeTab.color};">
-                <h2>${activeTab.name}</h2>
-            </div>
-            <div id="file-list">${fileListHTML}</div>
-        `;
+        if (results.contentMatches.length) {
+            contentHTML += '<h3>Content Mentions</h3><div class="file-list">';
+            contentHTML += results.contentMatches.map(match => {
+                const snippet = match.snippet.replace(regex, `<mark>$1</mark>`);
+                const highlightedName = match.file.name.replace(regex, `<mark>$1</mark>`);
+                return `<div class="file-item content-mention"><div class="file-item-content" data-path="${match.file.path}" data-name="${match.file.name}"><span class="file-name">${highlightedName}</span><span class="file-meta">Found in: ${match.tabTitle}</span><div class="content-mention-snippet">${snippet}</div></div></div>`;
+            }).join('');
+            contentHTML += '</div>';
+        }
+        contentHTML += '</div>';
+        contentArea.innerHTML = contentHTML;
     }
 
-    // --- EVENT LISTENERS ---
-    function setupEventListeners() {
-        importBtnMain.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', handleFileImport);
-        addNewTabBtn.addEventListener('click', addNewTab);
-        addNewSectionBtn.addEventListener('click', addNewSection);
+    // --- EVENT LISTENERS & HANDLERS ---
+    function initializeEventListeners() {
+        const sidebarContent = document.querySelector('.sidebar-content');
+        sidebarContent.addEventListener('click', handleSidebarClick);
+        sidebarContent.addEventListener('dragstart', handleDragStart);
+        sidebarContent.addEventListener('dragend', handleDragEnd);
+        sidebarContent.addEventListener('dragover', handleDragOver);
+        sidebarContent.addEventListener('drop', handleDrop);
         
-        sidebarContent.addEventListener('click', (e) => {
-            const tabEl = e.target.closest('.sidebar-tab');
-            const editIcon = e.target.closest('.edit-tab-icon');
+        document.getElementById('add-tab-btn').addEventListener('click', addTab);
+        document.getElementById('add-section-btn').addEventListener('click', addSection);
+        document.querySelector('.content-area').addEventListener('click', handleContentAreaClick);
+        document.getElementById('search-input').addEventListener('input', handleSearch);
+        document.getElementById('import-files-btn').addEventListener('click', () => document.getElementById('file-importer').click());
+        document.getElementById('file-importer').addEventListener('change', handleFileImport);
+        
+        // Modal general listeners
+        document.querySelectorAll('.close-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.dataset.modalId)));
+        
+        // PDF Modal listeners
+        document.getElementById('prev-page-btn').addEventListener('click', onPrevPage);
+        document.getElementById('next-page-btn').addEventListener('click', onNextPage);
+        document.getElementById('pdf-search-input').addEventListener('input', handlePdfSearch);
+        document.getElementById('pdf-search-prev').addEventListener('click', goToPrevMatch);
+        document.getElementById('pdf-search-next').addEventListener('click', goToNextMatch);
 
-            if (editIcon) {
-                e.stopPropagation();
-                const tabId = parseInt(editIcon.dataset.tabId);
-                openEditTabModal(tabId);
-                return;
-            }
+        // Edit Tab Modal listeners
+        document.getElementById('edit-tab-cancel').addEventListener('click', () => closeModal('edit-tab-modal'));
+        document.getElementById('edit-tab-save').addEventListener('click', saveTabChanges);
+        document.getElementById('edit-tab-color-palette').addEventListener('click', selectColorSwatch);
 
-            if (tabEl) {
-                const tabId = parseInt(tabEl.dataset.tabId);
-                state.activeTabId = tabId;
-                globalSearchInput.value = '';
-                renderApp();
-                closeSidebar();
-            }
-        });
-
-        mainContent.addEventListener('click', (e) => {
-            const deleteBtn = e.target.closest('.delete-file-btn');
-            const fileItem = e.target.closest('.file-list-item');
-
-            if (deleteBtn) {
-                const fileId = deleteBtn.dataset.fileId;
-                const tabId = parseInt(deleteBtn.dataset.tabId);
-                if (confirm('Are you sure you want to delete this file?')) {
-                    deleteFile(fileId, tabId);
+        // Resize listener for PDF viewer
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (pdfDoc && !document.getElementById('pdf-modal').classList.contains('hidden')) {
+                    renderPage(pageNum);
                 }
-            } else if (fileItem) {
-                const fileId = fileItem.dataset.fileId;
-                openPdfViewer(fileId);
-            }
+            }, 250); // Debounce resize event
         });
+    }
 
-        globalSearchInput.addEventListener('input', (e) => performGlobalSearch(e.target.value));
-
-        // Mobile Nav Listeners
-        menuToggleBtn.addEventListener('click', toggleSidebar);
-        sidebarOverlay.addEventListener('click', closeSidebar);
-        
-        // PDF Viewer Listeners
-        pdfViewerClose.addEventListener('click', closePdfViewer);
-        prevPageBtn.addEventListener('click', onPrevPage);
-        nextPageBtn.addEventListener('click', onNextPage);
-        pdfSearchInput.addEventListener('input', handlePdfSearch);
-        pdfSearchPrev.addEventListener('click', () => navigateMatches(-1));
-        pdfSearchNext.addEventListener('click', () => navigateMatches(1));
-
-        // Edit Tab Modal Listeners
-        editTabClose.addEventListener('click', () => editTabModal.style.display = 'none');
-        saveTabChangesBtn.addEventListener('click', saveTabChanges);
+    function handleSidebarClick(e) {
+        const editButton = e.target.closest('.edit-tab-button');
+        if (editButton) {
+            openEditModal(editButton.dataset.tabId);
+        } else if (e.target.closest('.tab')) {
+            handleTabClick(e);
+        }
     }
     
-    // --- MOBILE NAVIGATION ---
-    function toggleSidebar() {
-        sidebar.classList.toggle('open');
-        sidebarOverlay.classList.toggle('visible');
+    function updateActiveHeaderColor() {
+        const activeTab = document.querySelector('.tab.active');
+        if (!activeTab) return;
+        const activeColorVar = `--tab-color-${activeTab.dataset.color}`;
+        const activeColor = getComputedStyle(document.documentElement).getPropertyValue(activeColorVar);
+        const activePanelId = activeTab.dataset.tabTarget;
+        const activeHeader = document.querySelector(`${activePanelId} .content-panel-header h2`);
+        if (activeHeader) {
+            activeHeader.style.color = activeColor;
+        }
     }
 
-    function closeSidebar() {
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('visible');
+    function handleTabClick(e) {
+        e.preventDefault();
+        const searchInput = document.getElementById('search-input');
+        if (searchInput.value) {
+            searchInput.value = '';
+            renderBinder(binderData);
+            setTimeout(() => {
+                const clickedTabAgain = document.querySelector(`[data-tab-id="${e.target.closest('.tab').dataset.tabId}"]`);
+                if (clickedTabAgain) clickedTabAgain.click();
+            }, 0);
+            return;
+        }
+        const clickedTab = e.target.closest('.tab');
+        document.querySelectorAll('.sidebar .tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+        clickedTab.classList.add('active');
+        const targetPanel = document.querySelector(clickedTab.dataset.tabTarget);
+        if (targetPanel) {
+            targetPanel.classList.add('active');
+        }
+        updateActiveHeaderColor();
     }
-
-    // --- CORE LOGIC ---
-    function handleFileImport(event) {
-        const files = Array.from(event.target.files);
-        files.forEach(file => {
-            const fileId = `file_${Date.now()}_${Math.random()}`;
-            const fileUrl = URL.createObjectURL(file);
-            const fileData = { id: fileId, name: file.name };
-            
-            let targetTab = state.tabs.find(t => file.name.startsWith(t.name.split('.')[0]));
-            if (!targetTab) {
-                targetTab = state.tabs.find(t => t.id === state.activeTabId);
+    
+    function handleContentAreaClick(e) {
+        if (e.target.matches('.delete-btn')) {
+            deleteFile(e.target.dataset.tabId, e.target.dataset.fileName);
+            return;
+        }
+        const fileItemContent = e.target.closest('.file-item-content');
+        if (fileItemContent) {
+            openPdfModal(fileItemContent.dataset.path, fileItemContent.dataset.name);
+        }
+    }
+    
+    async function handleSearch(e) {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        if (!searchTerm) {
+            renderBinder(binderData);
+            setTimeout(updateActiveHeaderColor, 0);
+            return;
+        }
+        let results = { fileNameMatches: [], contentMatches: [] };
+        const addedFileNames = new Set();
+        for (const tab of binderData.filter(i => i.type === 'tab')) {
+            for (const file of tab.files) {
+                if (file.name.toLowerCase().includes(searchTerm) && !addedFileNames.has(file.name)) {
+                    results.fileNameMatches.push(file);
+                    addedFileNames.add(file.name);
+                }
+                const content = await getFileContent(file.path);
+                const lowerCaseContent = content.toLowerCase();
+                let index = lowerCaseContent.indexOf(searchTerm);
+                if (index !== -1) {
+                    const start = Math.max(0, index - 50);
+                    const end = Math.min(content.length, index + searchTerm.length + 50);
+                    const snippet = content.substring(start, end);
+                    results.contentMatches.push({ file, tabTitle: tab.title, snippet: `...${snippet}...` });
+                }
             }
-            targetTab.files.push(fileData);
-            
-            state.fileCache[fileId] = { name: file.name, url: fileUrl, content: '' };
-            cacheFileContent(fileId, file);
-        });
-        saveState();
-        renderApp();
-        fileInput.value = ''; // Reset input
-    }
-    
-    async function cacheFileContent(fileId, fileBlob) {
-        const arrayBuffer = await fileBlob.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(' ') + '\n';
         }
-        if(state.fileCache[fileId]) {
-            state.fileCache[fileId].content = fullText;
-        }
-    }
-    
-    function deleteFile(fileId, tabId) {
-        const tab = state.tabs.find(t => t.id === tabId);
-        if (tab) {
-            tab.files = tab.files.filter(f => f.id !== fileId);
-            const fileCacheEntry = state.fileCache[fileId];
-            if (fileCacheEntry && fileCacheEntry.url) {
-                URL.revokeObjectURL(fileCacheEntry.url);
-            }
-            delete state.fileCache[fileId];
-            saveState();
-            renderApp();
-        }
+        renderSearchResults(results, searchTerm);
     }
 
-    function addNewTab() {
-        const tabName = prompt('Enter new tab name:');
-        if (tabName) {
+    async function handleFileImport(e) {
+        const files = e.target.files;
+        if (!files.length) return;
+        for (const file of files) {
+            if (binderData.some(t => t.type === 'tab' && t.files.some(f => f.name === file.name))) {
+                alert(`Duplicate file detected. Skipping: ${file.name}`);
+                continue;
+            }
+            const parts = file.name.replace('.pdf', '').split('-');
+            if (parts.length < 2) {
+                alert(`Skipping invalid file name: ${file.name}`);
+                continue;
+            }
+            const tabNumber = parseInt(parts[0], 10);
+            const targetTab = binderData.find(item => item.type === 'tab' && item.displayNumber === tabNumber);
+
+            if (isNaN(tabNumber) || !targetTab) {
+                alert(`Skipping file with invalid tab number in name: ${file.name}`);
+                continue;
+            }
+            const newFile = {
+                name: file.name,
+                version: 'v1.0',
+                date: parts.slice(1).join('-'),
+                path: URL.createObjectURL(file)
+            };
+            targetTab.files.push(newFile);
+            await cacheFileContent(newFile.path);
+        }
+        renderBinder(binderData);
+        updateActiveHeaderColor();
+        e.target.value = '';
+    }
+
+    function deleteFile(tabId, fileName) {
+        if (!confirm(`Are you sure you want to delete "${fileName}"?`)) return;
+        const tab = binderData.find(t => t.id === tabId);
+        if (!tab) return;
+        const fileIndex = tab.files.findIndex(f => f.name === fileName);
+        if (fileIndex > -1) {
+            const filePath = tab.files[fileIndex].path;
+            URL.revokeObjectURL(filePath);
+            delete fileContentCache[filePath];
+            tab.files.splice(fileIndex, 1);
+        }
+        renderBinder(binderData);
+        updateActiveHeaderColor();
+    }
+
+    function addTab() {
+        const title = prompt("Enter a title for the new tab:");
+        if (title) {
+            const existingTabNumbers = binderData.filter(i => i.type === 'tab').map(t => t.displayNumber);
+            const nextNumber = existingTabNumbers.length > 0 ? Math.max(...existingTabNumbers) + 1 : 1;
             const newTab = {
-                id: state.nextTabId,
-                name: tabName,
-                color: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`,
-                files: []
+                id: `tab-${Date.now()}`,
+                title: title,
+                files: [],
+                type: 'tab',
+                displayNumber: nextNumber,
+                color: (binderData.filter(i => i.type === 'tab').length % tabColors) + 1
             };
-            state.tabs.push(newTab);
-            state.sidebarOrder.push(state.nextTabId);
-            state.nextTabId++;
-            saveState();
-            renderApp();
+            binderData.push(newTab);
+            renderBinder(binderData);
+            updateActiveHeaderColor();
         }
     }
 
-    function addNewSection() {
-        const sectionName = prompt('Enter new section name:');
-        if (sectionName) {
+    function addSection() {
+        const title = prompt("Enter a title for the new section:");
+        if (title) {
             const newSection = {
-                id: `s_${state.nextSectionId}`,
-                name: sectionName
+                id: `section-${Date.now()}`,
+                title: title,
+                type: 'section'
             };
-            state.sections.push(newSection);
-            state.sidebarOrder.push(newSection.id);
-            state.nextSectionId++;
-            saveState();
-            renderApp();
+            binderData.push(newSection);
+            renderBinder(binderData);
+            updateActiveHeaderColor();
         }
     }
 
-    function performGlobalSearch(query) {
-        if (!query || query.length < 2) {
-            renderMainContent();
-            return;
+    // --- DRAG AND DROP ---
+    let draggedElement = null;
+    let draggedId = null;
+
+    function handleDragStart(e) {
+        const draggable = e.target.closest('.tab-header, .sidebar-section');
+        if (draggable) {
+            draggedElement = draggable;
+            draggedId = draggable.dataset.itemId;
+            setTimeout(() => draggable.classList.add('dragging'), 0);
         }
-        
-        const lowerCaseQuery = query.toLowerCase();
-        const matchingFiles = [];
-        const contentMentions = [];
+    }
 
-        state.tabs.forEach(tab => {
-            tab.files.forEach(file => {
-                const fileId = file.id;
-                const fileCache = state.fileCache[fileId];
-                if (!fileCache) return;
+    function handleDragEnd() {
+        if (draggedElement) draggedElement.classList.remove('dragging');
+        draggedElement = null;
+        draggedId = null;
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
 
-                // Match filename
-                if (fileCache.name.toLowerCase().includes(lowerCaseQuery)) {
-                    matchingFiles.push({ ...file, tabId: tab.id });
-                }
+    function handleDragOver(e) {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        if (afterElement) afterElement.classList.add('drag-over');
+    }
 
-                // Match content
-                if (fileCache.content) {
-                    const content = fileCache.content;
-                    const regex = new RegExp(query, 'gi');
-                    let match;
-                    while ((match = regex.exec(content)) !== null) {
-                        const snippet = content.substring(Math.max(0, match.index - 50), Math.min(content.length, match.index + 50));
-                        contentMentions.push({
-                            file: { ...file, tabId: tab.id },
-                            snippet: snippet.replace(regex, `<mark>${match[0]}</mark>`)
-                        });
-                    }
-                }
-            });
-        });
-        
-        renderSearchResults(matchingFiles, contentMentions, query);
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.tab-header:not(.dragging), .sidebar-section:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
     
-    function renderSearchResults(matchingFiles, contentMentions, query) {
-        const highlight = (text) => text.replace(new RegExp(query, 'gi'), `<mark>${'$&'}</mark>`);
-
-        const filesHtml = matchingFiles.length > 0
-            ? matchingFiles.map(file => `
-                <div class="file-list-item search-result-item" data-file-id="${file.id}">
-                    ${highlight(file.name)}
-                </div>`).join('')
-            : '<p>No matching file names.</p>';
-
-        const mentionsHtml = contentMentions.length > 0
-            ? contentMentions.map(mention => `
-                <div class="file-list-item search-result-item content-mention" data-file-id="${mention.file.id}">
-                    <strong>${highlight(mention.file.name)}</strong>
-                    <p>...${mention.snippet}...</p>
-                </div>`).join('')
-            : '<p>No matches in file content.</p>';
-
-        mainContent.innerHTML = `
-            <h2>Search Results for "${query}"</h2>
-            <div id="search-results-container">
-                <h3>Matching Files</h3>
-                ${filesHtml}
-                <h3>Content Mentions</h3>
-                ${mentionsHtml}
-            </div>
-        `;
+    function handleDrop(e) {
+        e.preventDefault();
+        if (!draggedId) return;
+        const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
+        const draggedIndex = binderData.findIndex(item => item.id === draggedId);
+        if (draggedIndex === -1) return;
+        const [draggedItem] = binderData.splice(draggedIndex, 1);
+        let newIndex;
+        if (afterElement) {
+            newIndex = binderData.findIndex(item => item.id === afterElement.dataset.itemId);
+        } else {
+            newIndex = binderData.length;
+        }
+        binderData.splice(newIndex, 0, draggedItem);
+        const activeTabId = document.querySelector('.tab.active')?.dataset.tabId;
+        renderBinder(binderData);
+        if (activeTabId) {
+            const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
+            if (newActiveTab) {
+                newActiveTab.classList.add('active');
+                document.querySelector(newActiveTab.dataset.tabTarget)?.classList.add('active');
+            }
+        }
+        updateActiveHeaderColor();
     }
     
-    // --- PDF VIEWER LOGIC ---
-    function openPdfViewer(fileId) {
-        const file = state.fileCache[fileId];
-        if (!file || !file.url) return;
+    // --- MODAL & PDF VIEWER ---
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+        if (modalId === 'pdf-modal') {
+            pdfDoc = null;
+            currentPdfUrl = '';
+            pdfSearchTerm = '';
+            pdfSearchMatches = [];
+            document.getElementById('pdf-search-input').value = '';
+            pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+        }
+    }
+
+    function openPdfModal(pdfUrl, fileName) {
+        document.getElementById('pdf-title').textContent = fileName;
+        document.getElementById('pdf-modal').classList.remove('hidden');
+        currentPdfUrl = pdfUrl;
         
-        pdfTitle.textContent = file.name;
-        pageNum = 1;
-        currentSearchTerm = '';
-        pdfSearchInput.value = '';
-        pdfSearchMatches.textContent = '';
-        
-        const loadingTask = pdfjsLib.getDocument(file.url);
-        loadingTask.promise.then(pdf => {
-            pdfDoc = pdf;
-            pageCountEl.textContent = pdfDoc.numPages;
+        pdfjsLib.getDocument(pdfUrl).promise.then(doc => {
+            pdfDoc = doc;
+            document.getElementById('page-count').textContent = pdfDoc.numPages;
+            pageNum = 1;
             renderPage(pageNum);
-            pdfViewerModal.style.display = 'flex';
+        }).catch(err => {
+            console.error('Error opening PDF:', err);
+            alert(`Could not open PDF. Make sure you are running a local server and the file exists at: ${pdfUrl}`);
         });
     }
 
-    function closePdfViewer() {
-        pdfViewerModal.style.display = 'none';
-        pdfDoc = null;
+    // --- EDIT TAB MODAL ---
+    function openEditModal(tabId) {
+        const tabData = binderData.find(t => t.id === tabId);
+        if (!tabData) return;
+
+        document.getElementById('edit-tab-id').value = tabId;
+        document.getElementById('edit-tab-name').value = tabData.title;
+
+        const palette = document.getElementById('edit-tab-color-palette');
+        palette.innerHTML = '';
+        for (let i = 1; i <= tabColors; i++) {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = `var(--tab-color-${i})`;
+            swatch.dataset.color = i;
+            if (i === tabData.color) {
+                swatch.classList.add('selected');
+            }
+            palette.appendChild(swatch);
+        }
+        
+        document.getElementById('edit-tab-modal').classList.remove('hidden');
     }
 
-    function renderPage(num) {
+    function selectColorSwatch(e) {
+        if (e.target.classList.contains('color-swatch')) {
+            document.querySelectorAll('#edit-tab-color-palette .color-swatch').forEach(s => s.classList.remove('selected'));
+            e.target.classList.add('selected');
+        }
+    }
+
+    function saveTabChanges() {
+        const tabId = document.getElementById('edit-tab-id').value;
+        const newTitle = document.getElementById('edit-tab-name').value.trim();
+        const selectedColorSwatch = document.querySelector('#edit-tab-color-palette .color-swatch.selected');
+        
+        const tabData = binderData.find(t => t.id === tabId);
+        if (!tabData) return;
+
+        if (newTitle) {
+            tabData.title = newTitle;
+        }
+
+        if (selectedColorSwatch) {
+            tabData.color = parseInt(selectedColorSwatch.dataset.color, 10);
+        }
+        
+        const activeTabId = document.querySelector('.tab.active')?.dataset.tabId;
+        renderBinder(binderData);
+        if (activeTabId) {
+            const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
+            if (newActiveTab) {
+                 newActiveTab.classList.add('active');
+                 document.querySelector(newActiveTab.dataset.tabTarget)?.classList.add('active');
+            }
+        }
+        updateActiveHeaderColor();
+        closeModal('edit-tab-modal');
+    }
+
+    // --- PDF RENDERING & SEARCH ---
+    function renderPage(num, highlightMatchInPage = null) {
         pageRendering = true;
         pdfDoc.getPage(num).then(page => {
-            const viewport = page.getViewport({ scale: 1.5 });
-            const context = pdfCanvas.getContext('2d');
+            const container = document.getElementById('pdf-viewer-container');
+            if (!container) return;
+            const desiredWidth = container.clientWidth;
+            const viewport = page.getViewport({ scale: desiredWidth / page.getViewport({scale: 1}).width });
             pdfCanvas.height = viewport.height;
             pdfCanvas.width = viewport.width;
             
-            const renderContext = {
-                canvasContext: context,
-                viewport: viewport
-            };
-            const renderTask = page.render(renderContext);
-            renderTask.promise.then(() => {
+            const renderContext = { canvasContext: pdfCtx, viewport: viewport };
+            page.render(renderContext).promise.then(() => {
                 pageRendering = false;
                 if (pageNumPending !== null) {
-                    renderPage(pageNumPending);
+                    renderPage(pageNumPending.num, pageNumPending.highlight);
                     pageNumPending = null;
                 }
-                // After rendering, apply highlights
                 return page.getTextContent();
             }).then(textContent => {
-                // Apply highlights for search
-                // This is a simplified version. A robust solution would involve an overlay div.
+                const textLayerDiv = document.getElementById('text-layer');
+                if(!textLayerDiv) return;
+                textLayerDiv.innerHTML = '';
+                // The canvas is now a block element and centered, so we style the textLayer to match
+                textLayerDiv.style.width = pdfCanvas.width + 'px';
+                textLayerDiv.style.height = pdfCanvas.height + 'px';
+                pdfjsLib.renderTextLayer({ textContent, container: textLayerDiv, viewport, textDivs: [] });
+                highlightMatchesOnPage(highlightMatchInPage);
             });
         });
-        pageNumEl.textContent = num;
+        document.getElementById('page-num').textContent = num;
     }
-    
-    function queueRenderPage(num) {
+
+    function queueRenderPage(num, highlightMatchInPage = null) {
         if (pageRendering) {
-            pageNumPending = num;
+            pageNumPending = { num, highlight: highlightMatchInPage };
         } else {
-            renderPage(num);
+            renderPage(num, highlightMatchInPage);
         }
     }
 
@@ -461,52 +565,121 @@ document.addEventListener('DOMContentLoaded', () => {
         pageNum--;
         queueRenderPage(pageNum);
     }
-    
+
     function onNextPage() {
         if (pageNum >= pdfDoc.numPages) return;
         pageNum++;
         queueRenderPage(pageNum);
     }
-    
-    function handlePdfSearch(e) {
-        // Placeholder for in-PDF search logic
-        currentSearchTerm = e.target.value;
-        if(currentSearchTerm.length < 2) {
-             pdfSearchMatches.textContent = '';
-             return;
+
+    function handlePdfSearch(event) {
+        pdfSearchTerm = event.target.value;
+        pdfSearchMatches = [];
+        if (!pdfSearchTerm || pdfSearchTerm.length < 2) {
+            highlightMatchesOnPage();
+            updateSearchUIDisplay();
+            return;
         }
-        pdfSearchMatches.textContent = 'Searching...';
-        // In a real app, this would trigger a more complex search and highlight flow
-        setTimeout(() => pdfSearchMatches.textContent = `~${Math.floor(Math.random()*10)} matches`, 500);
+        const cache = fileContentCache[currentPdfUrl];
+        if (!cache) return;
+        const searchTermLower = pdfSearchTerm.toLowerCase();
+        cache.pageTexts.forEach((pageText, pageIndex) => {
+            const regex = new RegExp(searchTermLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            let match;
+            while ((match = regex.exec(pageText.toLowerCase())) !== null) {
+                pdfSearchMatches.push({ pageNum: pageIndex + 1, matchIndex: match.index });
+            }
+        });
+        currentMatchIndex = 0;
+        navigateToMatch();
     }
     
-    function navigateMatches(direction) {
-        // Placeholder for match navigation
+    function highlightMatchesOnPage(currentMatch) {
+        const textLayer = document.getElementById('text-layer');
+        const textDivs = textLayer.querySelectorAll("span");
+        textDivs.forEach(div => {
+            let content = div.textContent;
+            if(div.querySelector('mark')) {
+                content = div.querySelector('mark').textContent;
+            }
+            div.innerHTML = '';
+            div.appendChild(document.createTextNode(content));
+        });
+
+        if (!pdfSearchTerm || pdfSearchTerm.length < 2) return;
+        
+        const matchesOnPage = pdfSearchMatches.filter(m => m.pageNum === pageNum);
+        let matchIndexInPage = 0;
+
+        textDivs.forEach(div => {
+            const text = div.textContent;
+            const lowerText = text.toLowerCase();
+            const regex = new RegExp(pdfSearchTerm.toLowerCase(), 'g');
+            let match;
+            let lastIndex = 0;
+            const newContent = document.createDocumentFragment();
+
+            while ((match = regex.exec(lowerText)) !== null) {
+                newContent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+                const mark = document.createElement('mark');
+                mark.textContent = text.slice(match.index, match.index + pdfSearchTerm.length);
+                
+                if (currentMatch && match.index === currentMatch.matchIndex) {
+                    mark.classList.add('current-highlight');
+                    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                newContent.appendChild(mark);
+                lastIndex = regex.lastIndex;
+                matchIndexInPage++;
+            }
+            newContent.appendChild(document.createTextNode(text.slice(lastIndex)));
+            div.innerHTML = '';
+            div.appendChild(newContent);
+        });
+    }
+
+    function navigateToMatch() {
+        if (pdfSearchMatches.length === 0) {
+            highlightMatchesOnPage(null);
+            updateSearchUIDisplay();
+            return;
+        }
+        const match = pdfSearchMatches[currentMatchIndex];
+        if (pageNum !== match.pageNum) {
+            pageNum = match.pageNum;
+            queueRenderPage(pageNum, match);
+        } else {
+            highlightMatchesOnPage(match);
+        }
+        updateSearchUIDisplay();
     }
     
-    // --- EDIT TAB MODAL ---
-    function openEditTabModal(tabId) {
-        const tab = state.tabs.find(t => t.id === tabId);
-        if (tab) {
-            editTabNameInput.value = tab.name;
-            editTabColorInput.value = tab.color;
-            saveTabChangesBtn.dataset.tabId = tabId;
-            editTabModal.style.display = 'flex';
+    function goToPrevMatch() {
+        if (pdfSearchMatches.length === 0) return;
+        currentMatchIndex = (currentMatchIndex - 1 + pdfSearchMatches.length) % pdfSearchMatches.length;
+        navigateToMatch();
+    }
+
+    function goToNextMatch() {
+        if (pdfSearchMatches.length === 0) return;
+        currentMatchIndex = (currentMatchIndex + 1) % pdfSearchMatches.length;
+        navigateToMatch();
+    }
+
+    function updateSearchUIDisplay() {
+        const total = pdfSearchMatches.length;
+        const current = total > 0 ? currentMatchIndex + 1 : 0;
+        document.getElementById('pdf-search-results').textContent = `${current}/${total}`;
+    }
+
+    function setBuildTimestamp() {
+        const timestampElement = document.getElementById('build-timestamp');
+        if (timestampElement) {
+            timestampElement.textContent = `Build: ${new Date().toISOString()}`;
         }
     }
 
-    function saveTabChanges() {
-        const tabId = parseInt(saveTabChangesBtn.dataset.tabId);
-        const tab = state.tabs.find(t => t.id === tabId);
-        if (tab) {
-            tab.name = editTabNameInput.value;
-            tab.color = editTabColorInput.value;
-            saveState();
-            renderApp();
-            editTabModal.style.display = 'none';
-        }
-    }
-
-    // --- START ---
-    init();
+    initializeApp();
 });
+/* Build: 2025-09-25T19:31:37.319Z */

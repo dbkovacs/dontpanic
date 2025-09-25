@@ -4,85 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Digital Binder</title>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
-    </script>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <header class="app-header">
+        <h1 class="header-title">Digital Binder</h1>
+        <div class="header-controls">
+            <input type="search" id="search-input" placeholder="Search files...">
+            <button id="import-files-btn" class="btn-primary">+ Import</button>
+        </div>
+    </header>
 
-    <div id="app-container">
-        <header id="app-header">
-            <button class="menu-toggle-btn" id="menu-toggle-btn">&#9776;</button>
-            <h1 class="header-title">Digital Binder</h1>
-            <div class="search-container">
-                <input type="search" id="global-search-input" placeholder="Search files and content...">
+    <main class="app-main">
+        <nav class="sidebar">
+            <div class="sidebar-content"></div>
+            <div class="sidebar-footer">
+                <button id="add-tab-btn" class="btn-primary">+ New Tab</button>
+                <button id="add-section-btn" class="btn-primary">+ Add Section</button>
             </div>
-            <button id="import-btn-main" class="import-button">+ Import</button>
-            <input type="file" id="file-input" multiple accept=".pdf" style="display: none;">
-        </header>
-
-        <aside id="sidebar">
-            <div id="sidebar-content">
-                </div>
-            <div class="sidebar-actions">
-                <button id="add-new-tab-btn" class="sidebar-btn">+ New Tab</button>
-                <button id="add-new-section-btn" class="sidebar-btn">+ Add Section</button>
-            </div>
-        </aside>
-        
-        <main id="main-content">
-            </main>
-        
-        <footer id="app-footer">
-            <p id="build-timestamp">Building...</p>
-        </footer>
-    </div>
+        </nav>
+        <section class="content-area"></section>
+    </main>
     
-    <div id="sidebar-overlay"></div>
+    <footer class="app-footer">
+        <p id="build-timestamp">Building...</p>
+    </footer>
 
-    <div id="pdf-viewer-modal" class="modal-container" style="display: none;">
+    <input type="file" id="file-importer" class="hidden" multiple accept=".pdf">
+
+    <div id="pdf-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="pdf-viewer-title">PDF Viewer</h2>
-                <div class="pdf-viewer-controls">
-                    <div class="pdf-search-wrapper">
+                <h2 id="pdf-title">Loading Document...</h2>
+                <button class="close-btn" data-modal-id="pdf-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="pdf-controls">
+                    <button id="prev-page-btn">&lt;</button>
+                    <span>Page <span id="page-num">0</span> of <span id="page-count">0</span></span>
+                    <button id="next-page-btn">&gt;</button>
+                    <div class="pdf-search-container">
                         <input type="search" id="pdf-search-input" placeholder="Search in document...">
-                        <span id="pdf-search-matches"></span>
-                        <button id="pdf-search-prev" class="pdf-nav-btn">&lt;</button>
-                        <button id="pdf-search-next" class="pdf-nav-btn">&gt;</button>
-                    </div>
-                    <div class="pdf-page-controls">
-                        <button id="pdf-prev-page" class="pdf-nav-btn">Prev</button>
-                        <span id="pdf-page-num"></span> / <span id="pdf-page-count"></span>
-                        <button id="pdf-next-page" class="pdf-nav-btn">Next</button>
+                        <span id="pdf-search-results">0/0</span>
+                        <button id="pdf-search-prev">&lt;</button>
+                        <button id="pdf-search-next">&gt;</button>
                     </div>
                 </div>
-                <button id="pdf-viewer-close" class="modal-close-btn">&times;</button>
-            </div>
-            <div id="pdf-canvas-container">
-                <canvas id="pdf-canvas"></canvas>
+                <div id="pdf-viewer-container">
+                    <canvas id="pdf-canvas"></canvas>
+                    <div id="text-layer"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="edit-tab-modal" class="modal-container" style="display: none;">
-        <div class="modal-content small-modal">
-             <div class="modal-header">
+    <div id="edit-tab-modal" class="modal-overlay hidden">
+        <div class="modal-content small">
+            <div class="modal-header">
                 <h2>Edit Tab</h2>
-                <button id="edit-tab-close" class="modal-close-btn">&times;</button>
+                <button class="close-btn" data-modal-id="edit-tab-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <label for="edit-tab-name-input">Tab Name:</label>
-                <input type="text" id="edit-tab-name-input" placeholder="Enter tab name">
-                <label for="edit-tab-color-input">Tab Color:</label>
-                <input type="color" id="edit-tab-color-input">
-                <button id="save-tab-changes-btn" class="action-btn">Save Changes</button>
+                <input type="hidden" id="edit-tab-id">
+                <div class="form-group">
+                    <label for="edit-tab-name">Tab Name</label>
+                    <input type="text" id="edit-tab-name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Tab Color</label>
+                    <div id="edit-tab-color-palette" class="color-palette-modal">
+                        </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="edit-tab-cancel" class="btn-secondary">Cancel</button>
+                <button id="edit-tab-save" class="btn-primary">Save Changes</button>
             </div>
         </div>
     </div>
-    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
