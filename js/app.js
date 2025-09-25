@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             sidebarHTML += `
                 <div class="tab-header" draggable="true" data-tab-id="${tab.id}">
-                    <a href="#" class="tab ${isActive}" data-tab-target="#${tab.id}-content" data-tab-id="${tab.id}" data-color="${tab.color}">${tab.title}</a>
+                    <a href="#" class="tab" data-tab-target="#${tab.id}-content" data-tab-id="${tab.id}" data-color="${tab.color}">${tab.title}</a>
                     <div class="color-picker">
                         <span class="color-picker-icon">🎨</span>
                         ${colorPaletteHTML}
@@ -103,13 +103,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 `).join('');
             }
             contentHTML += `
-                <div class="content-panel ${isActive}" id="${tab.id}-content">
+                <div class="content-panel" id="${tab.id}-content">
                     <div class="content-panel-header"><h2>${tab.title}</h2></div>
                     <div class="file-list">${fileListHTML}</div>
                 </div>`;
         });
         sidebar.innerHTML = sidebarHTML;
         contentArea.innerHTML = contentHTML;
+
+        // Ensure first tab is active if none are specified
+        if (!document.querySelector('.sidebar .tab.active') && data.length > 0) {
+            const firstTabId = data[0].id;
+            document.querySelector(`.tab[data-tab-id="${firstTabId}"]`).classList.add('active');
+            document.getElementById(`${firstTabId}-content`).classList.add('active');
+        }
     }
 
     function renderSearchResults(results, searchTerm) {
@@ -327,20 +334,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DRAG AND DROP ---
     let draggedElement = null;
+    let draggedId = null;
 
     function handleDragStart(e) {
-        if (e.target.classList.contains('tab-header')) {
-            draggedElement = e.target;
-            setTimeout(() => e.target.classList.add('dragging'), 0);
+        const tabHeader = e.target.closest('.tab-header');
+        if (tabHeader) {
+            draggedElement = tabHeader;
+            draggedId = tabHeader.dataset.tabId;
+            setTimeout(() => tabHeader.classList.add('dragging'), 0);
         }
     }
 
     function handleDragEnd(e) {
         if (draggedElement) {
             draggedElement.classList.remove('dragging');
-            draggedElement = null;
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         }
+        draggedElement = null;
+        draggedId = null;
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     }
 
     function handleDragOver(e) {
@@ -350,9 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         if (afterElement) {
             afterElement.classList.add('drag-over');
-        } else {
-            // If dragging to the end, you might want a different indicator,
-            // but for now, we'll just insert at the end.
         }
     }
 
@@ -371,36 +379,42 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function handleDrop(e) {
         e.preventDefault();
-        const sidebar = e.currentTarget;
+        if (!draggedId) return;
+
+        const sidebar = document.querySelector('.sidebar');
         const afterElement = getDragAfterElement(sidebar, e.clientY);
+        const draggedIndex = binderData.findIndex(tab => tab.id === draggedId);
         
-        if (draggedElement) {
-            const draggedTabId = draggedElement.dataset.tabId;
-            const draggedContentPanel = document.getElementById(`${draggedTabId}-content`);
-            const contentArea = document.querySelector('.content-area');
+        if (draggedIndex === -1) return;
 
-            if (afterElement) {
-                const afterTabId = afterElement.dataset.tabId;
-                const afterContentPanel = document.getElementById(`${afterTabId}-content`);
-                sidebar.insertBefore(draggedElement, afterElement);
-                if (draggedContentPanel && afterContentPanel) {
-                    contentArea.insertBefore(draggedContentPanel, afterContentPanel);
-                }
-            } else {
-                sidebar.appendChild(draggedElement);
-                if (draggedContentPanel) {
-                    contentArea.appendChild(draggedContentPanel);
-                }
-            }
+        const [draggedItem] = binderData.splice(draggedIndex, 1);
 
-            // Update the binderData array to match the new DOM order
-            const newOrderIds = [...sidebar.querySelectorAll('.tab-header')].map(th => th.dataset.tabId);
-            binderData = newOrderIds.map(id => {
-                return binderData.find(tab => tab.id === id);
-            });
+        let newIndex;
+        if (afterElement) {
+            const afterId = afterElement.dataset.tabId;
+            newIndex = binderData.findIndex(tab => tab.id === afterId);
+        } else {
+            newIndex = binderData.length;
         }
+
+        binderData.splice(newIndex, 0, draggedItem);
+        
+        const activeTab = document.querySelector('.tab.active');
+        const activeTabId = activeTab ? activeTab.dataset.tabId : null;
+
+        renderBinder(binderData);
+        
+        if (activeTabId) {
+            const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
+            if (newActiveTab) {
+                newActiveTab.classList.add('active');
+                const newActivePanel = document.querySelector(newActiveTab.dataset.tabTarget);
+                if (newActivePanel) newActivePanel.classList.add('active');
+            }
+        }
+        
+        updateActiveHeaderColor();
     }
-    
     
     // --- MODAL & PDF VIEWER ---
     function openModal(pdfUrl, fileName) {
@@ -590,4 +604,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: Thu, 25 Sep 2025 18:05:00 GMT */
+/* Build Timestamp: Thu, 25 Sep 2025 18:08:00 GMT */
