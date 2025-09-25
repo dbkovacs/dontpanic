@@ -2,11 +2,12 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- DATA ---
     let binderData = [
-        { id: 'tab-1', title: 'Procedures', files: [] },
-        { id: 'tab-2', title: 'Checklists', files: [] },
-        { id: 'tab-3', title: 'Reference', files: [] },
+        { id: 'tab-1', title: '1. Procedures', files: [], color: 1 },
+        { id: 'tab-2', title: '2. Checklists', files: [], color: 2 },
+        { id: 'tab-3', title: '3. Reference', files: [], color: 3 },
     ];
     let fileContentCache = {};
+    const tabColors = 7;
 
     // --- PDF VIEWER STATE ---
     let pdfDoc = null;
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBinder(binderData);
         initializeEventListeners();
         binderData.forEach(tab => tab.files.forEach(file => cacheFileContent(file.path)));
+        updateActiveHeaderColor();
     }
 
     // --- PDF & CACHING ---
@@ -71,7 +73,23 @@ document.addEventListener('DOMContentLoaded', () => {
         let contentHTML = '';
         data.forEach((tab, index) => {
             const isActive = index === 0 ? 'active' : '';
-            sidebarHTML += `<a href="#" class="tab ${isActive}" data-tab-target="#${tab.id}-content">${index + 1}. ${tab.title}</a>`;
+            if (!tab.color) tab.color = (index % tabColors) + 1;
+
+            let colorPaletteHTML = '<div class="color-palette">';
+            for (let i = 1; i <= tabColors; i++) {
+                colorPaletteHTML += `<div class="color-swatch" style="background-color: var(--tab-color-${i})" data-tab-id="${tab.id}" data-color="${i}"></div>`;
+            }
+            colorPaletteHTML += '</div>';
+
+            sidebarHTML += `
+                <div class="tab-header" draggable="true" data-tab-id="${tab.id}">
+                    <a href="#" class="tab ${isActive}" data-tab-target="#${tab.id}-content" data-tab-id="${tab.id}" data-color="${tab.color}">${tab.title}</a>
+                    <div class="color-picker">
+                        <span class="color-picker-icon">🎨</span>
+                        ${colorPaletteHTML}
+                    </div>
+                </div>`;
+            
             let fileListHTML = '<p>No files in this section.</p>';
             if (tab.files.length > 0) {
                 fileListHTML = tab.files.map(file => `
@@ -86,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             contentHTML += `
                 <div class="content-panel ${isActive}" id="${tab.id}-content">
-                    <div class="content-panel-header"><h2>${index + 1}. ${tab.title}</h2></div>
+                    <div class="content-panel-header"><h2>${tab.title}</h2></div>
                     <div class="file-list">${fileListHTML}</div>
                 </div>`;
         });
@@ -127,7 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS & HANDLERS ---
     function initializeEventListeners() {
-        document.querySelector('.sidebar').addEventListener('click', handleTabClick);
+        const sidebar = document.querySelector('.sidebar');
+        sidebar.addEventListener('click', handleSidebarClick);
+        sidebar.addEventListener('dragstart', handleDragStart);
+        sidebar.addEventListener('dragend', handleDragEnd);
+        sidebar.addEventListener('dragover', handleDragOver);
+        sidebar.addEventListener('drop', handleDrop);
+
         document.querySelector('.content-area').addEventListener('click', handleContentAreaClick);
         document.getElementById('search-input').addEventListener('input', handleSearch);
         document.getElementById('import-files-btn').addEventListener('click', () => document.getElementById('file-importer').click());
@@ -138,22 +162,83 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('pdf-search-input').addEventListener('input', handlePdfSearch);
         document.getElementById('pdf-search-prev').addEventListener('click', goToPrevMatch);
         document.getElementById('pdf-search-next').addEventListener('click', goToNextMatch);
+        document.addEventListener('click', closeAllColorPalettes);
+    }
+
+    function handleSidebarClick(e) {
+        if (e.target.matches('.color-picker-icon')) {
+            toggleColorPalette(e);
+        } else if (e.target.closest('.tab')) {
+            handleTabClick(e);
+        } else if (e.target.matches('.color-swatch')) {
+            handleColorChange(e);
+        }
+    }
+
+    function toggleColorPalette(e) {
+        e.stopPropagation();
+        const picker = e.target.closest('.color-picker');
+        const palette = picker.querySelector('.color-palette');
+        const header = picker.closest('.tab-header');
+        const isVisible = palette.classList.contains('visible');
+        
+        closeAllColorPalettes();
+        document.querySelectorAll('.tab-header').forEach(h => h.classList.remove('z-indexed'));
+
+        if (!isVisible) {
+            palette.classList.add('visible');
+            header.classList.add('z-indexed');
+        }
+    }
+
+    function closeAllColorPalettes() {
+        document.querySelectorAll('.color-palette').forEach(p => p.classList.remove('visible'));
+        document.querySelectorAll('.tab-header').forEach(h => h.classList.remove('z-indexed'));
+    }
+
+    function handleColorChange(e) {
+        const tabId = e.target.dataset.tabId;
+        const newColor = e.target.dataset.color;
+        const tabData = binderData.find(t => t.id === tabId);
+        if (tabData) {
+            tabData.color = newColor;
+        }
+        const tabElement = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+        if (tabElement) {
+            tabElement.dataset.color = newColor;
+        }
+        updateActiveHeaderColor();
+    }
+    
+    function updateActiveHeaderColor() {
+        const activeTab = document.querySelector('.tab.active');
+        if (!activeTab) return;
+        const activeColorVar = `--tab-color-${activeTab.dataset.color}`;
+        const activeColor = getComputedStyle(document.documentElement).getPropertyValue(activeColorVar);
+        const activePanelId = activeTab.dataset.tabTarget;
+        const activeHeader = document.querySelector(`${activePanelId} .content-panel-header h2`);
+        if (activeHeader) {
+            activeHeader.style.color = activeColor;
+        }
     }
 
     function handleTabClick(e) {
-        if (!e.target.matches('.tab')) return;
         e.preventDefault();
         const searchInput = document.getElementById('search-input');
         if (searchInput.value) {
             searchInput.value = '';
             renderBinder(binderData);
+            setTimeout(updateActiveHeaderColor, 0);
         }
-        const clickedTab = e.target;
+        const clickedTab = e.target.closest('.tab');
         document.querySelectorAll('.sidebar .tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
         clickedTab.classList.add('active');
         const targetPanel = document.querySelector(clickedTab.dataset.tabTarget);
-        if (targetPanel) targetPanel.classList.add('active');
+        if (targetPanel) {
+            targetPanel.classList.add('active');
+        }
+        updateActiveHeaderColor();
     }
     
     function handleContentAreaClick(e) {
@@ -171,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchTerm = e.target.value.toLowerCase().trim();
         if (!searchTerm) {
             renderBinder(binderData);
+            setTimeout(updateActiveHeaderColor, 0);
             return;
         }
         let results = { fileNameMatches: [], contentMatches: [] };
@@ -222,6 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await cacheFileContent(newFile.path);
         }
         renderBinder(binderData);
+        updateActiveHeaderColor();
         e.target.value = '';
     }
 
@@ -235,7 +322,72 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.files.splice(fileIndex, 1);
         }
         renderBinder(binderData);
+        updateActiveHeaderColor();
     }
+
+    // --- DRAG AND DROP ---
+    let draggedElement = null;
+
+    function handleDragStart(e) {
+        if (e.target.classList.contains('tab-header')) {
+            draggedElement = e.target;
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+        }
+    }
+
+    function handleDragEnd(e) {
+        if (draggedElement) {
+            draggedElement.classList.remove('dragging');
+            draggedElement = null;
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        const sidebar = e.currentTarget;
+        const afterElement = getDragAfterElement(sidebar, e.clientY);
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        if (afterElement) {
+            afterElement.classList.add('drag-over');
+        } else {
+            // If dragging to the end, you might want a different indicator,
+            // but for now, we'll just insert at the end.
+        }
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.tab-header:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+        const sidebar = e.currentTarget;
+        const afterElement = getDragAfterElement(sidebar, e.clientY);
+        
+        if (draggedElement) {
+             if (afterElement == null) {
+                sidebar.appendChild(draggedElement);
+            } else {
+                sidebar.insertBefore(draggedElement, afterElement);
+            }
+        }
+        
+        // Update the binderData array to match the new DOM order
+        const newOrderIds = [...sidebar.querySelectorAll('.tab-header')].map(th => th.dataset.tabId);
+        const newBinderData = newOrderIds.map(id => binderData.find(tab => tab.id === id));
+        binderData = newBinderData;
+    }
+    
     
     // --- MODAL & PDF VIEWER ---
     function openModal(pdfUrl, fileName) {
@@ -425,4 +577,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: Wed, 24 Sep 2025 18:02:33 GMT */
+/* Build Timestamp: Thu, 25 Sep 2025 08:20:37 GMT */
