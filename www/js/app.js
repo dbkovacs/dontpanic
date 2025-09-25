@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.querySelector('.sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `js/lib/pdf.worker.min.js`;
     }
 
     // --- INITIALIZATION ---
@@ -529,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
             if (newActiveTab) {
                  newActiveTab.classList.add('active');
-                 document.querySelector(newActiveTab.dataset.tabTarget)?.classList.add('active');
+                 document.querySelector(newActiveTab.dataset.target)?.classList.add('active');
             }
         }
         updateActiveHeaderColor();
@@ -699,4 +699,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build: 2025-09-25T20:07:36.512Z */
