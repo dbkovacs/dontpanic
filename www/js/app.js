@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INTERACTION STATE ---
     let longPressTimer = null;
+    let pressStartElement = null;
     let pressStartCoords = { x: 0, y: 0 };
     const LONG_PRESS_DURATION = 500; // ms
     const DRAG_THRESHOLD = 10; // pixels
@@ -90,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach((item) => {
             if (item.type === 'tab') {
                 if (!firstTabId) firstTabId = item.id;
-                // Note: draggable="false" is set initially. JS will enable it on move.
                 sidebarHTML += `
                     <div class="tab-header" draggable="false" data-item-id="${item.id}">
                         <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.title} [${item.displayNumber}]</a>
@@ -208,21 +208,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePressStart(e) {
-        const target = e.target.closest('.tab-header, .sidebar-section');
-        if (!target) return;
+        pressStartElement = e.target.closest('.tab-header, .sidebar-section');
+        if (!pressStartElement) return;
 
         pressStartCoords.x = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
         pressStartCoords.y = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
 
         longPressTimer = setTimeout(() => {
-            longPressTimer = null; // Long press triggered, prevent click
-            const itemId = target.dataset.itemId;
+            const itemId = pressStartElement.dataset.itemId;
             const item = binderData.find(i => i.id === itemId);
             if (item.type === 'tab') {
                 openEditModal(itemId);
             } else if (item.type === 'section') {
                 editSectionName(itemId);
             }
+            clearPressEvents();
         }, LONG_PRESS_DURATION);
 
         window.addEventListener('mousemove', handlePressMove);
@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePressMove(e) {
-        if (!longPressTimer) return; // Already triggered long press or is dragging
+        if (!longPressTimer) return;
 
         const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
         const currentY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
@@ -242,25 +242,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
-            
-            const target = document.elementFromPoint(pressStartCoords.x, pressStartCoords.y).closest('.tab-header, .sidebar-section');
-            if(target) {
-                target.draggable = true;
+            if (pressStartElement) {
+                pressStartElement.draggable = true;
             }
+            clearPressEvents(true); // Clear listeners but preserve element for drag
         }
     }
 
     function handlePressEnd(e) {
-        clearTimeout(longPressTimer);
-        
         if (longPressTimer) { // If timer still exists, it was a short click
-            longPressTimer = null;
             const target = e.target.closest('.tab');
             if (target) {
                 handleTabClick(e);
             }
         }
-        
+        clearPressEvents();
+    }
+
+    function clearPressEvents(isDragging = false) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+        if (!isDragging && pressStartElement) {
+            pressStartElement.draggable = false;
+            pressStartElement = null;
+        }
         window.removeEventListener('mousemove', handlePressMove);
         window.removeEventListener('touchmove', handlePressMove);
         window.removeEventListener('mouseup', handlePressEnd);
@@ -452,8 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let draggedId = null;
 
     function handleDragStart(e) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
+        clearPressEvents();
         
         const draggable = e.target.closest('.tab-header, .sidebar-section');
         if (draggable) {
@@ -470,6 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         draggedElement = null;
         draggedId = null;
+        pressStartElement = null;
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     }
 
@@ -770,4 +775,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build: 2025-09-25T21:55:12.345Z */
+/* Build: 2025-09-25T22:15:30.888Z */
