@@ -21,8 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INTERACTION STATE ---
     let longPressTimer = null;
-    let longPressTarget = null;
+    let pressStartCoords = { x: 0, y: 0 };
     const LONG_PRESS_DURATION = 500; // ms
+    const DRAG_THRESHOLD = 10; // pixels
 
     // --- DOM ELEMENTS ---
     const pdfCanvas = document.getElementById('pdf-canvas');
@@ -89,8 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach((item) => {
             if (item.type === 'tab') {
                 if (!firstTabId) firstTabId = item.id;
+                // Note: draggable="false" is set initially. JS will enable it on move.
                 sidebarHTML += `
-                    <div class="tab-header" draggable="true" data-item-id="${item.id}">
+                    <div class="tab-header" draggable="false" data-item-id="${item.id}">
                         <a href="#" class="tab" data-tab-target="#${item.id}-content" data-tab-id="${item.id}" data-color="${item.color}">${item.title} [${item.displayNumber}]</a>
                     </div>`;
                 
@@ -112,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="file-list">${fileListHTML}</div>
                     </div>`;
             } else if (item.type === 'section') {
-                sidebarHTML += `<div class="sidebar-section" draggable="true" data-item-id="${item.id}">${item.title}</div>`;
+                sidebarHTML += `<div class="sidebar-section" draggable="false" data-item-id="${item.id}">${item.title}</div>`;
             }
         });
         sidebarContent.innerHTML = sidebarHTML;
@@ -165,10 +167,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeEventListeners() {
         const sidebarContent = document.querySelector('.sidebar-content');
         sidebarContent.addEventListener('mousedown', handlePressStart);
-        sidebarContent.addEventListener('touchstart', handlePressStart);
-        sidebarContent.addEventListener('mouseup', handlePressEnd);
-        sidebarContent.addEventListener('touchend', handlePressEnd);
-        sidebarContent.addEventListener('touchcancel', handlePressCancel);
+        sidebarContent.addEventListener('touchstart', handlePressStart, { passive: true });
+        
         sidebarContent.addEventListener('dragstart', handleDragStart);
         sidebarContent.addEventListener('dragend', handleDragEnd);
         sidebarContent.addEventListener('dragover', handleDragOver);
@@ -208,36 +208,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePressStart(e) {
-        const target = e.target.closest('.tab, .sidebar-section');
+        const target = e.target.closest('.tab-header, .sidebar-section');
         if (!target) return;
 
-        longPressTarget = target;
+        pressStartCoords.x = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        pressStartCoords.y = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
         longPressTimer = setTimeout(() => {
-            longPressTimer = null; // Prevent click from firing
-            if (target.matches('.tab')) {
-                openEditModal(target.dataset.tabId);
-            } else if (target.matches('.sidebar-section')) {
-                editSectionName(target.dataset.itemId);
+            longPressTimer = null; // Long press triggered, prevent click
+            const itemId = target.dataset.itemId;
+            const item = binderData.find(i => i.id === itemId);
+            if (item.type === 'tab') {
+                openEditModal(itemId);
+            } else if (item.type === 'section') {
+                editSectionName(itemId);
             }
         }, LONG_PRESS_DURATION);
+
+        window.addEventListener('mousemove', handlePressMove);
+        window.addEventListener('touchmove', handlePressMove);
+        window.addEventListener('mouseup', handlePressEnd);
+        window.addEventListener('touchend', handlePressEnd);
+    }
+
+    function handlePressMove(e) {
+        if (!longPressTimer) return; // Already triggered long press or is dragging
+
+        const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const currentY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+        const deltaX = Math.abs(currentX - pressStartCoords.x);
+        const deltaY = Math.abs(currentY - pressStartCoords.y);
+
+        if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+            
+            const target = document.elementFromPoint(pressStartCoords.x, pressStartCoords.y).closest('.tab-header, .sidebar-section');
+            if(target) {
+                target.draggable = true;
+            }
+        }
     }
 
     function handlePressEnd(e) {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
+        clearTimeout(longPressTimer);
+        
+        if (longPressTimer) { // If timer still exists, it was a short click
             longPressTimer = null;
-            // This was a short press (a tap/click)
-            if (longPressTarget && longPressTarget.matches('.tab')) {
+            const target = e.target.closest('.tab');
+            if (target) {
                 handleTabClick(e);
             }
         }
-    }
-    
-    function handlePressCancel(e) {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
+        
+        window.removeEventListener('mousemove', handlePressMove);
+        window.removeEventListener('touchmove', handlePressMove);
+        window.removeEventListener('mouseup', handlePressEnd);
+        window.removeEventListener('touchend', handlePressEnd);
     }
 
     function toggleSidebar() {
@@ -425,7 +452,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let draggedId = null;
 
     function handleDragStart(e) {
-        handlePressCancel(); // Cancel long press if drag starts
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+        
         const draggable = e.target.closest('.tab-header, .sidebar-section');
         if (draggable) {
             draggedElement = draggable;
@@ -434,8 +463,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleDragEnd() {
-        if (draggedElement) draggedElement.classList.remove('dragging');
+    function handleDragEnd(e) {
+        if (draggedElement) {
+            draggedElement.classList.remove('dragging');
+            draggedElement.draggable = false;
+        }
         draggedElement = null;
         draggedId = null;
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
@@ -569,7 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newActiveTab = document.querySelector(`.tab[data-tab-id="${activeTabId}"]`);
             if (newActiveTab) {
                  newActiveTab.classList.add('active');
-                 document.querySelector(newActiveTab.dataset.target)?.classList.add('active');
+                 document.querySelector(newActiveTab.dataset.tabTarget)?.classList.add('active');
             }
         }
         updateActiveHeaderColor();
@@ -738,3 +770,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
+/* Build: 2025-09-25T21:55:12.345Z */
