@@ -8,6 +8,9 @@
     --accent-color: #0d6efd;
     --danger-color: #dc3545;
     --border-color: #444;
+    --highlight-bg: #ffd700;
+    --highlight-text: #000;
+    --current-highlight-bg: #ff9800; /* Orange for the current match */
 }
 
 * {
@@ -186,6 +189,52 @@ body {
     color: white;
 }
 
+/* Search Results Specific Styles */
+.search-results-container h3 {
+    color: var(--accent-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+.search-results-container h3:first-child {
+    margin-top: 0;
+}
+
+.content-mention .file-name {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.content-mention .file-meta {
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.content-mention-snippet {
+    font-family: monospace;
+    font-size: 0.85rem;
+    background-color: var(--primary-bg);
+    padding: 0.5rem;
+    border-radius: 4px;
+    color: var(--secondary-text);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+mark, .highlight {
+    background-color: var(--highlight-bg);
+    color: var(--highlight-text);
+    border-radius: 2px;
+    padding: 0.1em;
+}
+
+.current-highlight {
+    background-color: var(--current-highlight-bg);
+}
+
+
 /* Modal Styles */
 .modal-overlay {
     position: fixed;
@@ -209,14 +258,14 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     width: 90%;
-    max-width: 800px;
+    max-width: 90vw;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 #pdf-modal .modal-content {
-    height: 90vh;
+    height: 95vh;
 }
 
 .modal-header {
@@ -244,14 +293,75 @@ body {
 }
 
 .modal-body {
+    flex-grow: 1;
     overflow: auto;
-    padding: 1.5rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
 }
 
-#pdf-canvas {
-    border: 1px solid var(--border-color);
-    display: block;
+#pdf-viewer-container {
+    position: relative;
     margin: 0 auto;
+    flex-grow: 1;
+    overflow: auto;
+}
+
+#text-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    opacity: 0.5; /* Make it visible for debugging, set to 0 for production */
+    line-height: 1.0;
+}
+
+#text-layer > span {
+    color: transparent;
+    position: absolute;
+    white-space: pre;
+    cursor: text;
+    transform-origin: 0% 0%;
+}
+
+.pdf-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    background-color: var(--primary-bg);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.pdf-controls button {
+    background-color: var(--tertiary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--primary-text);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0.3rem 0.6rem;
+}
+.pdf-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pdf-search-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+#pdf-search-input {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--primary-text);
+    padding: 0.3rem;
+    border-radius: 3px;
 }
 
 .btn-primary {
@@ -283,3 +393,4 @@ body {
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
 }
+/* Build Timestamp: Wed, 24 Sep 2025 17:46:17 GMT */
