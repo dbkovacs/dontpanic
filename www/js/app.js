@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pdfSearchTerm = '';
     let pdfSearchMatches = [];
     let currentMatchIndex = 0;
+    let pinchZoomInstance = null;
 
     // --- INTERACTION STATE ---
     let longPressTimer = null;
@@ -528,6 +529,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeModal(modalId) {
         document.getElementById(modalId).classList.add('hidden');
         if (modalId === 'pdf-modal') {
+            if (pinchZoomInstance) {
+                pinchZoomInstance.destroy();
+                pinchZoomInstance = null;
+            }
             pdfDoc = null;
             currentPdfUrl = '';
             pdfSearchTerm = '';
@@ -631,6 +636,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderPage(pageNumPending.num, pageNumPending.highlight);
                     pageNumPending = null;
                 }
+                if (pinchZoomInstance) {
+                    pinchZoomInstance.destroy();
+                }
+                pinchZoomInstance = new PinchZoom(pdfCanvas, {});
+
                 return page.getTextContent();
             }).then(textContent => {
                 const textLayerDiv = document.getElementById('text-layer');
@@ -775,4 +785,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build: 2025-09-25T22:15:30.888Z */
+/* Build Timestamp: 2025-09-26T08:50:00-06:00 */
