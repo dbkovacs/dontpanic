@@ -95,6 +95,7 @@
             this.events = {};
             this.options = __assign(__assign({}, defaultOptions), options);
             this.el = el;
+            this.el.style.transformOrigin = '0 0';
             this.zoomFactor = 1;
             this.lastScale = 1;
             this.offset = { x: 0, y: 0 };
