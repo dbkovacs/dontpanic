@@ -2,76 +2,94 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Binder</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <header class="app-header">
+        <button id="menu-toggle-btn" class="menu-toggle-btn">&#9776;</button>
+        <h1 class="header-title">Digital Binder</h1>
+        <div class="header-controls">
+            <input type="search" id="search-input" placeholder="Search files...">
+            <button id="import-files-btn" class="btn-primary">+ Import</button>
+        </div>
+    </header>
 
-    <div id="app-container">
-        <header>
-            <h1>Don't Panic!</h1>
-            <div id="search-container">
-                <input type="search" id="search-input" placeholder="Search all documents...">
+    <main class="app-main">
+        <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
+        <nav class="sidebar">
+            <div class="sidebar-content"></div>
+            <div class="sidebar-footer">
+                <button id="add-tab-btn" class="btn-primary">+ New Tab</button>
+                <button id="add-section-btn" class="btn-primary">+ Add Section</button>
             </div>
-        </header>
+        </nav>
+        <section class="content-area"></section>
+    </main>
+    
+    <footer class="app-footer">
+        <p id="build-timestamp">Building...</p>
+    </footer>
 
-        <main>
-            <div id="tabs-container"></div>
-            <div id="content-container"></div>
-        </main>
+    <input type="file" id="file-importer" class="hidden" multiple accept=".pdf">
 
-        <footer>
-            <button id="import-files-btn">Import Files</button>
-            <input type="file" id="file-input" multiple hidden accept=".pdf">
-            <p id="build-timestamp"></p>
-        </footer>
-    </div>
-
-    <div id="search-results-modal" class="modal-hidden">
+    <div id="pdf-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <button class="modal-close-btn" id="search-results-close-btn">&times;</button>
-            <h2>Search Results</h2>
-            <div id="search-results-content"></div>
+            <div class="modal-header">
+                <h2 id="pdf-title">Loading Document...</h2>
+                <button class="close-btn" data-modal-id="pdf-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="pdf-controls">
+                    <button id="prev-page-btn">&lt;</button>
+                    <span>Page <span id="page-num">0</span> of <span id="page-count">0</span></span>
+                    <button id="next-page-btn">&gt;</button>
+                    <div class="pdf-search-container">
+                        <input type="search" id="pdf-search-input" placeholder="Search in document...">
+                        <span id="pdf-search-results">0/0</span>
+                        <button id="pdf-search-prev">&lt;</button>
+                        <button id="pdf-search-next">&gt;</button>
+                    </div>
+                </div>
+                <div id="pdf-viewer-container">
+                    <div id="pdf-zoom-content">
+                        <canvas id="pdf-canvas"></canvas>
+                        <div id="text-layer"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="pdf-viewer-modal" class="modal-hidden">
-        <div class="modal-content">
-            <div id="pdf-viewer-header">
-                <h3 id="pdf-viewer-title"></h3>
-                <button class="modal-close-btn" id="pdf-viewer-close-btn">&times;</button>
+    <div id="edit-tab-modal" class="modal-overlay hidden">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>Edit Tab</h2>
+                <button class="close-btn" data-modal-id="edit-tab-modal">&times;</button>
             </div>
-            <div id="pdf-viewer-main">
-                <div id="pdf-viewer-container">
-                    <!-- Canvas will be inserted here -->
+            <div class="modal-body">
+                <input type="hidden" id="edit-tab-id">
+                <div class="form-group">
+                    <label for="edit-tab-name">Tab Name</label>
+                    <input type="text" id="edit-tab-name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Tab Color</label>
+                    <div id="edit-tab-color-palette" class="color-palette-modal">
+                    </div>
                 </div>
             </div>
-            <div id="pdf-viewer-controls">
-                <div class="control-group">
-                    <button id="prev-page">‹</button>
-                    <div id="page-indicator">Page <span id="page-num">0</span> / <span id="page-count">0</span></div>
-                    <button id="next-page">›</button>
-                </div>
-                <div class="control-group">
-                    <button id="zoom-out">-</button>
-                    <button id="zoom-fit">Fit</button>
-                    <button id="zoom-in">+</button>
-                </div>
-                <div class="control-group search-group">
-                    <input type="search" id="pdf-search-input" placeholder="Search in document...">
-                    <button id="pdf-search-prev">‹</button>
-                    <span id="pdf-search-count">0/0</span>
-                    <button id="pdf-search-next">›</button>
-                </div>
+            <div class="modal-footer">
+                <button id="edit-tab-cancel" class="btn-secondary">Cancel</button>
+                <button id="edit-tab-save" class="btn-primary">Save Changes</button>
             </div>
         </div>
     </div>
 
     <script src="js/lib/pdf.min.js"></script>
+    <script src="js/lib/pdf.worker.min.js"></script>
     <script src="js/lib/pinch-zoom.js"></script>
     <script src="js/app.js"></script>
-
 </body>
 </html>
-<!-- Build: 2025-09-26 10:00:15 -->
