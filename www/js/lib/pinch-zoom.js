@@ -101,6 +101,8 @@
             this.initialOffset = { x: 0, y: 0 };
             this.target = { x: 0, y: 0 };
             this.previous = { x: 0, y: 0 };
+            this.initialDistance = 0;
+            this.initialZoomFactor = 1;
             this.is3d = this.options.use2d === false;
             var onInteractionStart = this.onInteractionStart.bind(this);
             var onInteractionMove = this.onInteractionMove.bind(this);
@@ -179,6 +181,8 @@
                 this.isZooming = true;
                 this.lastGesture = "zoom";
                 this.initialOffset = __assign({}, this.offset);
+                this.initialDistance = getDistance(touches[0], touches[1]);
+                this.initialZoomFactor = this.zoomFactor;
             }
             else {
                 this.isDragging = true;
@@ -199,9 +203,9 @@
             var touches = getTouches(event);
             if (this.isZooming) {
                 var _a = getTouches(event), touch = _a[0], other = _a[1];
-                var distance = getDistance(touch, other);
-                var scale = distance / getDistance(touches[0], touches[1]);
-                var newZoomFactor = this.zoomFactor * scale;
+                var currentDistance = getDistance(touch, other);
+                var scale = currentDistance / this.initialDistance;
+                var newZoomFactor = this.initialZoomFactor * scale;
                 this.setZoomFactor(newZoomFactor, getCenter(touch, other));
             }
             else if (this.isDragging) {
@@ -320,4 +324,3 @@
     return PinchZoom;
 
 }));
-/* Build Timestamp: 2025-09-26T08:50:00-06:00 */

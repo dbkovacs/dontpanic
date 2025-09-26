@@ -390,6 +390,7 @@ mark, .highlight {
     flex-grow: 1;
     overflow: hidden;
     position: relative;
+    touch-action: manipulation;
 }
 
 #pdf-zoom-content {
@@ -534,4 +535,3 @@ mark, .highlight {
         box-shadow: 5px 0 15px rgba(0,0,0,0.2);
     }
 }
-/* Build Timestamp: 2025-09-26T09:12:53-06:00 */
