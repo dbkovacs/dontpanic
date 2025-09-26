@@ -171,7 +171,9 @@
             event.preventDefault();
             this.isZooming = true;
             var newZoomFactor = this.zoomFactor + event.deltaY * -0.01;
-            this.setZoomFactor(newZoomFactor, { x: event.pageX, y: event.pageY });
+            var parentRect = this.el.parentElement.getBoundingClientRect();
+            var center = { x: event.pageX - parentRect.left, y: event.pageY - parentRect.top };
+            this.setZoomFactor(newZoomFactor, center);
             this.isZooming = false;
         };
         PinchZoom.prototype.handleInteractionStart = function (event) {
@@ -206,7 +208,11 @@
                 var currentDistance = getDistance(touch, other);
                 var scale = currentDistance / this.initialDistance;
                 var newZoomFactor = this.initialZoomFactor * scale;
-                this.setZoomFactor(newZoomFactor, getCenter(touch, other));
+                var parentRect = this.el.parentElement.getBoundingClientRect();
+                var center = getCenter(touch, other);
+                center.x -= parentRect.left;
+                center.y -= parentRect.top;
+                this.setZoomFactor(newZoomFactor, center);
             }
             else if (this.isDragging) {
                 var touch = touches[0];
@@ -259,7 +265,10 @@
         };
         PinchZoom.prototype.handleDoubleTap = function (event) {
             var _a, _b;
+            var parentRect = this.el.parentElement.getBoundingClientRect();
             var center = getTouches(event)[0];
+            center.x -= parentRect.left;
+            center.y -= parentRect.top;
             var now = Date.now();
             var lastDoubleTap = this.lastDoubleTap;
             if (lastDoubleTap && now - lastDoubleTap < 500) {
