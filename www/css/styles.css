@@ -380,38 +380,35 @@ mark, .highlight {
 
 .modal-body {
     flex-grow: 1;
-    overflow: auto;
+    overflow: hidden;
     padding: 1rem;
     display: flex;
     flex-direction: column;
 }
 
 #pdf-viewer-container {
-    position: relative;
     flex-grow: 1;
-    overflow: hidden; /* Changed from auto to hidden */
-    display: flex; /* Added for centering */
-    justify-content: center; /* Added for centering */
-    align-items: center; /* Added for centering */
+    overflow: hidden;
+    position: relative;
+}
+
+#pdf-zoom-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
 }
 
 #pdf-canvas {
-    display: block;
-    margin: 0 auto;
-    max-width: 100%; /* Added */
-    max-height: 100%; /* Added */
-    object-fit: contain; /* Added */
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 #text-layer {
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
     top: 0;
-    right: 0;
-    bottom: 0;
-    overflow: hidden;
-    opacity: 0.5; /* Make it visible for debugging, set to 0 for production */
+    left: 0;
+    opacity: 0.5; 
     line-height: 1.0;
 }
 
@@ -537,4 +534,4 @@ mark, .highlight {
         box-shadow: 5px 0 15px rgba(0,0,0,0.2);
     }
 }
-/* Build Timestamp: 2025-09-26T08:50:00-06:00 */
+/* Build Timestamp: 2025-09-26T09:05:00-06:00 */

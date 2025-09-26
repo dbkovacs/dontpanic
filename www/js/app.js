@@ -624,11 +624,16 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfDoc.getPage(num).then(page => {
             const container = document.getElementById('pdf-viewer-container');
             if (!container) return;
+            const zoomContent = document.getElementById('pdf-zoom-content');
+            
             const desiredWidth = container.clientWidth;
             const viewport = page.getViewport({ scale: desiredWidth / page.getViewport({scale: 1}).width });
+            
             pdfCanvas.height = viewport.height;
             pdfCanvas.width = viewport.width;
-            
+            zoomContent.style.width = viewport.width + 'px';
+            zoomContent.style.height = viewport.height + 'px';
+
             const renderContext = { canvasContext: pdfCtx, viewport: viewport };
             page.render(renderContext).promise.then(() => {
                 pageRendering = false;
@@ -636,12 +641,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderPage(pageNumPending.num, pageNumPending.highlight);
                     pageNumPending = null;
                 }
+
                 if (pinchZoomInstance) {
                     pinchZoomInstance.destroy();
                 }
-                pinchZoomInstance = new PinchZoom(pdfCanvas, {});
-
+                pinchZoomInstance = new PinchZoom(zoomContent, {});
+                
                 return page.getTextContent();
+
             }).then(textContent => {
                 const textLayerDiv = document.getElementById('text-layer');
                 if(!textLayerDiv) return;
@@ -785,4 +792,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeApp();
 });
-/* Build Timestamp: 2025-09-26T08:50:00-06:00 */
+/* Build Timestamp: 2025-09-26T09:05:00-06:00 */
